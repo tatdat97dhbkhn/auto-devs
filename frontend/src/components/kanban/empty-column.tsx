@@ -19,7 +19,7 @@ export function EmptyColumn({
         <BrushCleaning className='h-6 w-6' />
       </div>
 
-      <h3 className='mb-1 font-medium'>No tasks</h3>
+      <h3 className='mb-1 font-medium'>Chưa có công việc</h3>
       <p className='mb-4 max-w-40 text-sm'>{column.description}</p>
 
       {canCreateTask && column.id === 'TODO' && (

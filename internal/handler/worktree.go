@@ -65,7 +65,7 @@ func (h *WorktreeHandler) CreateWorktreeForTask(c *gin.Context) {
 
 	c.JSON(http.StatusAccepted, dto.WorktreeResponse{
 		Worktree: worktree,
-		Message:  "Worktree creation started",
+		Message:  "Đã bắt đầu tạo Worktree",
 	})
 }
 
@@ -109,7 +109,7 @@ func (h *WorktreeHandler) CleanupWorktreeForTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
-		Message: "Worktree cleaned up successfully",
+		Message: "Đã dọn dẹp Worktree",
 	})
 }
 
@@ -227,7 +227,7 @@ func (h *WorktreeHandler) UpdateWorktreeStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
-		Message: "Worktree status updated successfully",
+		Message: "Đã cập nhật trạng thái Worktree",
 	})
 }
 
@@ -371,7 +371,7 @@ func (h *WorktreeHandler) InitializeWorktree(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
-		Message: "Worktree initialized successfully",
+		Message: "Đã khởi tạo Worktree",
 	})
 }
 
@@ -407,7 +407,7 @@ func (h *WorktreeHandler) RecoverFailedWorktree(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
-		Message: "Worktree recovered successfully",
+		Message: "Đã khôi phục Worktree",
 	})
 }
 

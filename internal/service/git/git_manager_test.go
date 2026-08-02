@@ -19,8 +19,8 @@ func createTestLogger() *slog.Logger {
 
 func TestNewGitManager(t *testing.T) {
 	tests := []struct {
-		name     string
-		config   *ManagerConfig
+		name        string
+		config      *ManagerConfig
 		expectError bool
 	}{
 		{
@@ -66,7 +66,7 @@ func TestGitManager_ValidateRepository(t *testing.T) {
 	mockExecutor := new(MockCommandExecutor)
 	commands := NewGitCommands(mockExecutor)
 	validator := NewGitValidator(commands)
-	
+
 	manager := &GitManager{
 		commands:  commands,
 		validator: validator,
@@ -78,11 +78,11 @@ func TestGitManager_ValidateRepository(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		repoPath       string
-		setupMocks     func()
-		expectedError  bool
-		expectedInfo   *RepositoryInfo
+		name          string
+		repoPath      string
+		setupMocks    func()
+		expectedError bool
+		expectedInfo  *RepositoryInfo
 	}{
 		{
 			name:     "valid repository",
@@ -91,19 +91,19 @@ func TestGitManager_ValidateRepository(t *testing.T) {
 				// Mock IsRepository check
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"rev-parse", "--git-dir"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: ".git\n"}, nil).Once()
-				
+
 				// Mock CurrentBranch
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"rev-parse", "--abbrev-ref", "HEAD"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: "main\n"}, nil).Once()
-				
+
 				// Mock GetRemoteURL
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"remote", "get-url", "origin"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: "https://github.com/user/repo.git\n"}, nil).Once()
-				
+
 				// Mock Status
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"status", "--porcelain"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: ""}, nil).Once()
-				
+
 				// Mock GetCommitInfo
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"show", "--pretty=format:%H|%an|%ai|%s", "--no-patch", "HEAD"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: "abc123|John Doe|2023-01-01 12:00:00 +0000|Initial commit"}, nil).Once()
@@ -136,7 +136,7 @@ func TestGitManager_ValidateRepository(t *testing.T) {
 			// Reset mock
 			mockExecutor.ExpectedCalls = nil
 			mockExecutor.Calls = nil
-			
+
 			tt.setupMocks()
 
 			info, err := manager.ValidateRepository(context.Background(), tt.repoPath)
@@ -163,7 +163,7 @@ func TestGitManager_CreateBranch(t *testing.T) {
 	mockExecutor := new(MockCommandExecutor)
 	commands := NewGitCommands(mockExecutor)
 	validator := NewGitValidator(commands)
-	
+
 	manager := &GitManager{
 		commands:  commands,
 		validator: validator,
@@ -176,9 +176,9 @@ func TestGitManager_CreateBranch(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		request      *CreateBranchRequest
-		setupMocks   func()
+		name          string
+		request       *CreateBranchRequest
+		setupMocks    func()
 		expectedError bool
 	}{
 		{
@@ -192,7 +192,7 @@ func TestGitManager_CreateBranch(t *testing.T) {
 				// Mock CheckBranchExists
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"branch", "--all"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: "  main\n  develop\n"}, nil).Once()
-				
+
 				// Mock CreateBranch
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"branch", "feature-branch", "main"}).
 					Return(&CommandResult{ExitCode: 0}, nil).Once()
@@ -205,7 +205,7 @@ func TestGitManager_CreateBranch(t *testing.T) {
 				BranchName: ".invalid-branch",
 				WorkingDir: "/tmp/repo",
 			},
-			setupMocks:   func() {},
+			setupMocks:    func() {},
 			expectedError: true,
 		},
 		{
@@ -228,7 +228,7 @@ func TestGitManager_CreateBranch(t *testing.T) {
 			// Reset mock
 			mockExecutor.ExpectedCalls = nil
 			mockExecutor.Calls = nil
-			
+
 			tt.setupMocks()
 
 			err := manager.CreateBranch(context.Background(), tt.request)
@@ -248,7 +248,7 @@ func TestGitManager_SwitchBranch(t *testing.T) {
 	mockExecutor := new(MockCommandExecutor)
 	commands := NewGitCommands(mockExecutor)
 	validator := NewGitValidator(commands)
-	
+
 	manager := &GitManager{
 		commands:  commands,
 		validator: validator,
@@ -260,9 +260,9 @@ func TestGitManager_SwitchBranch(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		request      *SwitchBranchRequest
-		setupMocks   func()
+		name          string
+		request       *SwitchBranchRequest
+		setupMocks    func()
 		expectedError bool
 	}{
 		{
@@ -275,7 +275,7 @@ func TestGitManager_SwitchBranch(t *testing.T) {
 				// Mock ValidateWorkingDirectory
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"status", "--porcelain"}).
 					Return(&CommandResult{ExitCode: 0, Stdout: ""}, nil).Once()
-				
+
 				// Mock Checkout
 				mockExecutor.On("Execute", mock.Anything, mock.Anything, []string{"checkout", "develop"}).
 					Return(&CommandResult{ExitCode: 0}, nil).Once()
@@ -316,7 +316,7 @@ func TestGitManager_SwitchBranch(t *testing.T) {
 			// Reset mock
 			mockExecutor.ExpectedCalls = nil
 			mockExecutor.Calls = nil
-			
+
 			tt.setupMocks()
 
 			err := manager.SwitchBranch(context.Background(), tt.request)
@@ -341,8 +341,8 @@ func TestGitManager_executeWithRetry(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		operation    func() error
+		name          string
+		operation     func() error
 		expectedError bool
 		expectedCalls int
 	}{
@@ -387,7 +387,7 @@ func TestGitManager_executeWithRetry(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			assert.Equal(t, tt.expectedCalls, callCount)
 		})
 	}
@@ -439,6 +439,23 @@ func TestGitManager_shouldRetry(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestGitManager_GenerateVersionedBranchNameFromBase(t *testing.T) {
+	executor := new(MockCommandExecutor)
+	executor.On("Execute", mock.Anything, "/repo", []string{"fetch", "origin"}).Return(&CommandResult{ExitCode: 0}, nil).Once()
+	executor.On("Execute", mock.Anything, "/repo", []string{"branch", "--all"}).Return(&CommandResult{ExitCode: 0, Stdout: "feature/remove-agents-file\nfeature/remove-agents-file-v2\n"}, nil).Once()
+	executor.On("Execute", mock.Anything, "/repo", []string{"branch", "--all"}).Return(&CommandResult{ExitCode: 0, Stdout: "feature/remove-agents-file\nfeature/remove-agents-file-v2\n"}, nil).Once()
+	executor.On("Execute", mock.Anything, "/repo", []string{"branch", "--all"}).Return(&CommandResult{ExitCode: 0, Stdout: "feature/remove-agents-file\nfeature/remove-agents-file-v2\n"}, nil).Once()
+
+	commands := NewGitCommands(executor)
+	validator := NewGitValidator(commands)
+	manager := &GitManager{commands: commands, validator: validator, logger: createTestLogger(), config: &ManagerConfig{MaxRetries: 1}}
+
+	branch, err := manager.GenerateVersionedBranchNameFromBase(context.Background(), "/repo", "feature/remove-agents-file")
+	assert.NoError(t, err)
+	assert.Equal(t, "feature/remove-agents-file-v3", branch)
+	executor.AssertExpectations(t)
 }
 
 func TestGitManager_getWorkingDir(t *testing.T) {

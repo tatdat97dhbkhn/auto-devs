@@ -59,6 +59,14 @@ func (e *DeepSeekExecutor) GetPlanningCommand(ctx context.Context, task *entity.
 	return command, prompt, e.getEnvVars(), nil
 }
 
+func (e *DeepSeekExecutor) GetPlanningCommandWithSession(ctx context.Context, task *entity.Task, sessionID string) (string, string, map[string]string, error) {
+	command, prompt, env, err := e.GetPlanningCommand(ctx, task)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return command + " --resume " + shellQuote(sessionID), prompt, env, nil
+}
+
 func (e *DeepSeekExecutor) GetImplementationCommand(ctx context.Context, task *entity.Task) (string, string, map[string]string, error) {
 	command := "npx -y @anthropic-ai/claude-code@2.1.119 -p --dangerously-skip-permissions --verbose --output-format=stream-json"
 	prompt, err := e.getImplementationPrompt(ctx, task)
@@ -145,9 +153,17 @@ func (e *DeepSeekExecutor) getImplementationPrompt(_ context.Context, task *enti
 // generatePlanningPrompt creates a structured prompt for AI planning phase
 func (e *DeepSeekExecutor) generatePlanningPrompt(task entity.Task) (string, error) {
 	prompt := fmt.Sprintf(`
-	Plan for bellow task, only output the plan, no other text:
+	Plan for the task below. Return the plan in English and no other commentary:
 	Task: %s
 	Task Description: %s
+
+	At the top, include this exact metadata section with clear values selected for this task:
+	## Plan Metadata
+	- Branch Name: feature/<short-kebab-case-description>
+	- Commit Message: <one-line imperative English commit message>
+	- Pull Request Title: <concise English title, preferably the same as the commit message>
+
+	Then include the implementation details under ## Implementation Plan.
 	`, task.Title, task.Description)
 	return prompt, nil
 }

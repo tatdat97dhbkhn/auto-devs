@@ -14,5 +14,6 @@ func RunMigrations(db *GormDB) error {
 		&entity.Execution{},
 		&entity.Process{},
 		&entity.ExecutionLog{},
+		&entity.Plan{},
 	)
 }

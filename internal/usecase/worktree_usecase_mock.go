@@ -174,6 +174,34 @@ func (_c *WorktreeUsecaseMock_CreateBranchForTask_Call) Return(err error) *Workt
 	return _c
 }
 
+// RenameBranchForTask provides a mock function for the type WorktreeUsecaseMock
+func (_mock *WorktreeUsecaseMock) RenameBranchForTask(ctx context.Context, taskID uuid.UUID, branchName string) error {
+	ret := _mock.Called(ctx, taskID, branchName)
+	if len(ret) == 0 {
+		panic("no return value specified for RenameBranchForTask")
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) error); ok {
+		return returnFunc(ctx, taskID, branchName)
+	}
+	return ret.Error(0)
+}
+
+type WorktreeUsecaseMock_RenameBranchForTask_Call struct{ *mock.Call }
+
+func (_e *WorktreeUsecaseMock_Expecter) RenameBranchForTask(ctx interface{}, taskID interface{}, branchName interface{}) *WorktreeUsecaseMock_RenameBranchForTask_Call {
+	return &WorktreeUsecaseMock_RenameBranchForTask_Call{Call: _e.mock.On("RenameBranchForTask", ctx, taskID, branchName)}
+}
+
+func (_c *WorktreeUsecaseMock_RenameBranchForTask_Call) Run(run func(context.Context, uuid.UUID, string)) *WorktreeUsecaseMock_RenameBranchForTask_Call {
+	_c.Call.Run(func(args mock.Arguments) { run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string)) })
+	return _c
+}
+
+func (_c *WorktreeUsecaseMock_RenameBranchForTask_Call) Return(err error) *WorktreeUsecaseMock_RenameBranchForTask_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
 func (_c *WorktreeUsecaseMock_CreateBranchForTask_Call) RunAndReturn(run func(ctx context.Context, taskID uuid.UUID, branchName string) error) *WorktreeUsecaseMock_CreateBranchForTask_Call {
 	_c.Call.Return(run)
 	return _c

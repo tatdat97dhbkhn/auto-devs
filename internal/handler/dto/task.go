@@ -220,6 +220,8 @@ func TaskStatusAnalyticsResponseFromEntity(analytics *entity.TaskStatusAnalytics
 type StartPlanningRequest struct {
 	BranchName      string `json:"branch_name" binding:"required" example:"main"`
 	AIType          string `json:"ai_type" binding:"required" example:"claude-code"`
+	Model           string `json:"model,omitempty" example:"gpt-5.6-luna"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty" example:"medium"`
 	AutoImplement   bool   `json:"auto_implement"`
 	UseRemoteBranch bool   `json:"use_remote_branch"`
 }
@@ -231,7 +233,10 @@ type StartPlanningResponse struct {
 
 // Approve Plan DTOs
 type ApprovePlanRequest struct {
-	AIType string `json:"ai_type" binding:"required" example:"claude-code"`
+	PlanID          uuid.UUID `json:"plan_id" binding:"required" example:"00000000-0000-0000-0000-000000000000"`
+	AIType          string    `json:"ai_type" binding:"required" example:"claude-code"`
+	Model           string    `json:"model,omitempty" example:"claude-sonnet-4-6"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty" example:"medium"`
 }
 
 // Git Branches DTOs
@@ -256,5 +261,7 @@ type PlanUpdateRequest struct {
 type StartImplementingDirectRequest struct {
 	BranchName      string `json:"branch_name" binding:"required" example:"main"`
 	AIType          string `json:"ai_type" binding:"required" example:"claude-code"`
+	Model           string `json:"model,omitempty" example:"gpt-5.6-luna"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty" example:"medium"`
 	UseRemoteBranch bool   `json:"use_remote_branch"`
 }

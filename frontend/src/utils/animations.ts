@@ -205,7 +205,7 @@ export function useTaskAnimations() {
     if (element) {
       AnimationUtils.animateTaskAppear(element)
       if (options?.showToast) {
-        toast.success(options.toastMessage || 'New task created')
+        toast.success(options.toastMessage || 'Đã tạo công việc mới')
       }
     }
   }
@@ -233,7 +233,8 @@ export function useTaskAnimations() {
     if (element) {
       AnimationUtils.animateStatusChange(element, {
         ...options,
-        toastMessage: options?.toastMessage || `Task moved to ${newStatus}`,
+        toastMessage:
+          options?.toastMessage || `Công việc đã chuyển sang ${newStatus}`,
         showToast: options?.showToast ?? true,
       })
     }
@@ -249,7 +250,7 @@ export function useTaskAnimations() {
     if (element) {
       return AnimationUtils.animateTaskRemove(element).then(() => {
         if (options?.showToast) {
-          toast.info(options.toastMessage || 'Task deleted')
+          toast.info(options.toastMessage || 'Đã xoá công việc')
         }
       })
     }

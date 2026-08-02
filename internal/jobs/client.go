@@ -33,9 +33,25 @@ func (c *Client) Close() error {
 	return c.client.Close()
 }
 
+func (c *Client) EnqueueTaskPlanRevisionString(payload *TaskPlanRevisionPayload, delay time.Duration) (string, error) {
+	task, err := NewTaskPlanRevisionJob(*payload)
+	if err != nil {
+		return "", err
+	}
+	opts := []asynq.Option{asynq.MaxRetry(1), asynq.Timeout(30 * time.Minute), asynq.Queue("planning")}
+	if delay > 0 {
+		opts = append(opts, asynq.ProcessIn(delay))
+	}
+	info, err := c.client.Enqueue(task, opts...)
+	if err != nil {
+		return "", err
+	}
+	return info.ID, nil
+}
+
 // EnqueueTaskPlanning enqueues a task planning job
 func (c *Client) EnqueueTaskPlanning(payload *TaskPlanningPayload, delay time.Duration) (*asynq.TaskInfo, error) {
-	task, err := NewTaskPlanningJob(payload.TaskID, payload.BranchName, payload.ProjectID, payload.AIType, payload.AutoImplement, payload.UseRemoteBranch)
+	task, err := NewTaskPlanningJob(payload.TaskID, payload.BranchName, payload.ProjectID, payload.AIType, payload.Model, payload.ReasoningEffort, payload.AutoImplement, payload.UseRemoteBranch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task planning job: %w", err)
 	}
@@ -70,7 +86,7 @@ func (c *Client) EnqueueTaskPlanningString(payload *TaskPlanningPayload, delay t
 
 // EnqueueTaskImplementation enqueues a task implementation job
 func (c *Client) EnqueueTaskImplementation(payload *TaskImplementationPayload, delay time.Duration) (*asynq.TaskInfo, error) {
-	task, err := NewTaskImplementationJob(payload.TaskID, payload.ProjectID, payload.AIType, payload.UseRemoteBranch)
+	task, err := NewTaskImplementationJob(payload.TaskID, payload.ProjectID, payload.PlanID, payload.AIType, payload.Model, payload.ReasoningEffort, payload.UseRemoteBranch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task implementation job: %w", err)
 	}

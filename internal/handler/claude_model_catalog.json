@@ -1,0 +1,41 @@
+{
+  "models": {
+    "claude-sonnet-4-6": "Balanced model for everyday coding, planning, and agentic work.",
+    "claude-opus-4-8": "Most capable model for complex coding, planning, and deep reasoning.",
+    "claude-haiku-4-5": "Fast and efficient model for simple coding and routine tasks.",
+    "claude-fable-5": "Frontier model for complex reasoning, coding, and real-world work."
+  },
+  "families": {
+    "sonnet": "Balanced model for everyday coding, planning, and agentic work.",
+    "opus": "Highly capable model for complex coding, planning, and deep reasoning.",
+    "haiku": "Fast and efficient model for simple coding and routine tasks.",
+    "fable": "Frontier model for complex reasoning, coding, and real-world work."
+  },
+  "reasoning_levels": [
+    {
+      "value": "low",
+      "name": "Low",
+      "description": "Fast responses with lighter reasoning."
+    },
+    {
+      "value": "medium",
+      "name": "Medium",
+      "description": "Balances speed and reasoning depth for everyday tasks."
+    },
+    {
+      "value": "high",
+      "name": "High",
+      "description": "Greater reasoning depth for complex problems."
+    },
+    {
+      "value": "xhigh",
+      "name": "Extra high",
+      "description": "Extra high reasoning depth for complex problems."
+    },
+    {
+      "value": "max",
+      "name": "More reasoning…",
+      "description": "Maximum reasoning depth; consumes usage limits faster."
+    }
+  ]
+}

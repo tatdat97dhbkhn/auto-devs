@@ -99,8 +99,19 @@ type AiCodingCli interface {
 	ParseOutputToPlan(output string) (string, error)
 }
 
+// SessionResumableAiCodingCli is optional. Executors which expose a stable
+// CLI session can use it for plan revisions; all other executors use the
+// normal prompt-based flow.
+type SessionResumableAiCodingCli interface {
+	GetPlanningCommandWithSession(context.Context, *entity.Task, string) (string, string, map[string]string, error)
+}
+
 // StartExecution starts a new AI execution
 func (es *ExecutionService) StartExecution(task *entity.Task, cli AiCodingCli, isForPlanning bool) (*Execution, map[string]string, error) {
+	return es.StartExecutionWithSession(task, cli, isForPlanning, "")
+}
+
+func (es *ExecutionService) StartExecutionWithSession(task *entity.Task, cli AiCodingCli, isForPlanning bool, sessionID string) (*Execution, map[string]string, error) {
 	executionID := uuid.New().String()
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -108,7 +119,15 @@ func (es *ExecutionService) StartExecution(task *entity.Task, cli AiCodingCli, i
 	var injectEnvVars map[string]string
 	var err error
 	if isForPlanning {
-		command, input, injectEnvVars, err = cli.GetPlanningCommand(ctx, task)
+		if sessionID != "" {
+			if resumable, ok := cli.(SessionResumableAiCodingCli); ok {
+				command, input, injectEnvVars, err = resumable.GetPlanningCommandWithSession(ctx, task, sessionID)
+			} else {
+				command, input, injectEnvVars, err = cli.GetPlanningCommand(ctx, task)
+			}
+		} else {
+			command, input, injectEnvVars, err = cli.GetPlanningCommand(ctx, task)
+		}
 	} else {
 		command, input, injectEnvVars, err = cli.GetImplementationCommand(ctx, task)
 	}

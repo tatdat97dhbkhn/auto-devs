@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -381,6 +382,83 @@ func (m *GitManager) HasPendingChanges(ctx context.Context, workingDir string) (
 // GenerateBranchName generates a branch name based on task information
 func (m *GitManager) GenerateBranchName(taskID string, title string) (string, error) {
 	return m.branchManager.GenerateBranchName(taskID, title)
+}
+
+// RenameBranch updates the branch attached to an existing task worktree.
+func (m *GitManager) RenameBranch(ctx context.Context, workingDir, oldName, newName string) error {
+	if err := m.validator.ValidateBranchName(newName); err != nil {
+		return fmt.Errorf("branch name validation failed: %w", err)
+	}
+	if oldName == "" || oldName == newName {
+		return nil
+	}
+	if exists, err := m.validator.CheckBranchExists(ctx, workingDir, newName); err != nil {
+		return fmt.Errorf("failed to check target branch: %w", err)
+	} else if exists {
+		return fmt.Errorf("target branch already exists: %s", newName)
+	}
+	if err := m.executeWithRetry(ctx, func() error {
+		return m.commands.RenameBranch(ctx, workingDir, oldName, newName)
+	}); err != nil {
+		return fmt.Errorf("failed to rename branch: %w", err)
+	}
+	return nil
+}
+
+// GenerateVersionedBranchNameFromBase returns the first available version of
+// an already-selected branch name. This is used when an AI-proposed branch
+// collides with a branch that already exists in the repository.
+func (m *GitManager) GenerateVersionedBranchNameFromBase(ctx context.Context, workingDir, base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if err := m.validator.ValidateBranchName(base); err != nil {
+		return "", fmt.Errorf("branch name validation failed: %w", err)
+	}
+	// Refresh remote refs so a branch that exists only on origin is also
+	// versioned. A fetch failure is non-fatal; local branch checks still work
+	// for offline repositories and test doubles.
+	_ = m.executeWithRetry(ctx, func() error { return m.commands.Fetch(ctx, workingDir, "origin") })
+	for version := 1; version <= 100; version++ {
+		candidate := base
+		if version > 1 {
+			candidate = fmt.Sprintf("%s-v%d", base, version)
+		}
+		exists, err := m.validator.CheckBranchExists(ctx, workingDir, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find an available branch name for %s", base)
+}
+
+// GenerateVersionedBranchName returns the first available semantic branch
+// name so retries do not reuse a branch left by a failed worktree attempt.
+func (m *GitManager) GenerateVersionedBranchName(ctx context.Context, workingDir, taskID, title string) (string, error) {
+	base, err := m.GenerateBranchName(taskID, title)
+	if err != nil {
+		return "", err
+	}
+	_ = m.executeWithRetry(ctx, func() error { return m.commands.Fetch(ctx, workingDir, "origin") })
+	for version := 1; version <= 100; version++ {
+		candidate := base
+		if version > 1 {
+			candidate = fmt.Sprintf("%s-v%d", base, version)
+		}
+		exists, err := m.branchManager.validator.CheckBranchExists(ctx, workingDir, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find an available branch name for %s", base)
+}
+
+func (m *GitManager) BranchExists(ctx context.Context, workingDir, branchName string) (bool, error) {
+	return m.branchManager.validator.CheckBranchExists(ctx, workingDir, branchName)
 }
 
 // CreateBranchFromMain creates a new branch from the main/default branch

@@ -1,5 +1,11 @@
 # Auto-Devs application
 
+Auto-Devs hiển thị giao diện tiếng Việt (`vi-VN`) theo mặc định. Tài liệu vận hành và
+phát triển tiếng Việt nằm trong [docs/vi/](docs/vi/README.md). API path, JSON field,
+enum và log kỹ thuật vẫn giữ nguyên để bảo đảm tương thích tích hợp.
+
+> Tài liệu tiếng Việt đầy đủ: **[Bắt đầu đọc tại docs/vi/README.md](docs/vi/README.md)**. Bộ tài liệu giải thích mục đích, cách dùng, kiến trúc, luồng AI–Git–PR, API, cơ sở dữ liệu và cách phát triển/vận hành dự án.
+
 Auto your development workflow with coding AI agents & CLI.
 
 [Demo video](https://youtu.be/meg2uBtbJ0A)

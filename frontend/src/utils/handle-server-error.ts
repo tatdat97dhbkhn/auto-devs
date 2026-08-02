@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 export function handleServerError(error: unknown) {
   console.log(error)
 
-  let errMsg = 'Something went wrong!'
+  let errMsg = 'Đã xảy ra lỗi!'
 
   if (
     error &&
@@ -12,7 +12,7 @@ export function handleServerError(error: unknown) {
     'status' in error &&
     Number(error.status) === 204
   ) {
-    errMsg = 'Content not found.'
+    errMsg = 'Không tìm thấy nội dung.'
   }
 
   if (error instanceof AxiosError) {

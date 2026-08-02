@@ -25,8 +25,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
 const taskFormSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
-  description: z.string().max(1000, 'Description too long').optional(),
+  title: z.string().min(1, 'Tiêu đề là bắt buộc').max(200, 'Tiêu đề quá dài'),
+  description: z.string().max(1000, 'Mô tả quá dài').optional(),
 })
 
 type TaskFormValues = z.infer<typeof taskFormSchema>
@@ -106,12 +106,12 @@ export function TaskFormModal({
       <DialogContent className='sm:max-w-[425px]'>
         <DialogHeader>
           <DialogTitle>
-            {mode === 'create' ? 'Create New Task' : 'Edit Task'}
+            {mode === 'create' ? 'Tạo công việc mới' : 'Chỉnh sửa công việc'}
           </DialogTitle>
           <DialogDescription>
             {mode === 'create'
-              ? 'Add a new task to your project board.'
-              : 'Update the task details.'}
+              ? 'Thêm công việc mới vào bảng dự án.'
+              : 'Cập nhật thông tin công việc.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -122,10 +122,10 @@ export function TaskFormModal({
               name='title'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Tiêu đề</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder='Enter task title...'
+                      placeholder='Nhập tiêu đề công việc...'
                       {...field}
                       disabled={isLoading}
                     />
@@ -140,10 +140,10 @@ export function TaskFormModal({
               name='description'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Mô tả</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='Enter task description...'
+                      placeholder='Nhập mô tả công việc...'
                       className='min-h-[100px]'
                       {...field}
                       disabled={isLoading}
@@ -161,14 +161,14 @@ export function TaskFormModal({
                 onClick={() => onOpenChange(false)}
                 disabled={isLoading}
               >
-                Cancel
+                Huỷ
               </Button>
               <Button type='submit' disabled={isLoading}>
                 {isLoading
-                  ? 'Saving...'
+                  ? 'Đang lưu...'
                   : mode === 'create'
-                    ? 'Create Task'
-                    : 'Update Task'}
+                    ? 'Tạo công việc'
+                    : 'Cập nhật công việc'}
               </Button>
             </DialogFooter>
           </form>

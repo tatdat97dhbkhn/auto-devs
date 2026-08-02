@@ -29,6 +29,15 @@ type JobClientInterfaceMock struct {
 	mock.Mock
 }
 
+func (_mock *JobClientInterfaceMock) EnqueueTaskPlanRevision(payload *TaskPlanRevisionPayload, delay time.Duration) (string, error) {
+	ret := _mock.Called(payload, delay)
+	var id string
+	if ret.Get(0) != nil {
+		id = ret.Get(0).(string)
+	}
+	return id, ret.Error(1)
+}
+
 type JobClientInterfaceMock_Expecter struct {
 	mock *mock.Mock
 }

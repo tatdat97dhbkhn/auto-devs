@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/auto-devs/auto-devs/internal/entity"
 	"github.com/google/uuid"
@@ -16,6 +15,13 @@ type GitHubServiceInterface interface {
 	CreatePullRequest(ctx context.Context, repo, base, head, title, body string) (*entity.PullRequest, error)
 	UpdatePullRequest(ctx context.Context, repo string, prNumber int, updates map[string]interface{}) error
 	GetPullRequest(ctx context.Context, repo string, prNumber int) (*entity.PullRequest, error)
+}
+
+// OpenPullRequestFinder is implemented by GitHub clients that can look up an
+// existing open PR by its head branch. It is optional to keep lightweight test
+// and custom clients backward compatible.
+type OpenPullRequestFinder interface {
+	FindOpenPullRequest(ctx context.Context, repo, base, head string) (*entity.PullRequest, error)
 }
 
 // PRCreator handles automatic pull request creation from completed implementations
@@ -40,7 +46,7 @@ func (prc *PRCreator) CreatePRFromImplementation(ctx context.Context, task entit
 	}
 
 	// Generate PR title
-	title, err := prc.GeneratePRTitle(task)
+	title, err := prc.GeneratePRTitleFromPlan(task, plan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate PR title: %w", err)
 	}
@@ -58,6 +64,19 @@ func (prc *PRCreator) CreatePRFromImplementation(ctx context.Context, task entit
 		return nil, fmt.Errorf("unable to determine repository from task")
 	}
 
+	// GitHub rejects a second open PR with the same head/base pair. Reusing the
+	// existing PR makes retries and duplicate worker deliveries idempotent.
+	if finder, ok := prc.githubService.(OpenPullRequestFinder); ok {
+		existing, findErr := finder.FindOpenPullRequest(ctx, repository, *task.BaseBranchName, *task.BranchName)
+		if findErr != nil {
+			return nil, fmt.Errorf("failed to find existing pull request: %w", findErr)
+		}
+		if existing != nil {
+			existing.TaskID = task.ID
+			return existing, nil
+		}
+	}
+
 	// Create the pull request via GitHub API
 	githubPR, err := prc.githubService.CreatePullRequest(
 		ctx,
@@ -68,6 +87,15 @@ func (prc *PRCreator) CreatePRFromImplementation(ctx context.Context, task entit
 		description,
 	)
 	if err != nil {
+		// A duplicate worker can race with the lookup above. Re-check after a
+		// failed create so GitHub's 422 "a pull request already exists" is still
+		// handled idempotently.
+		if finder, ok := prc.githubService.(OpenPullRequestFinder); ok {
+			if existing, findErr := finder.FindOpenPullRequest(ctx, repository, *task.BaseBranchName, *task.BranchName); findErr == nil && existing != nil {
+				existing.TaskID = task.ID
+				return existing, nil
+			}
+		}
 		return nil, fmt.Errorf("failed to create GitHub pull request: %w", err)
 	}
 
@@ -95,7 +123,7 @@ func (prc *PRCreator) GeneratePRTitle(task entity.Task) (string, error) {
 	// Truncate title if too long to fit within GitHub's PR title limits
 	maxTitleLength := 255 - len(typePrefix) - len(task.ID.String()) - 5 // Account for brackets and spaces
 
-	title := task.Title
+	title := EnglishTaskTitle(task.Title)
 	if len(title) > maxTitleLength {
 		title = title[:maxTitleLength-3] + "..."
 	}
@@ -103,83 +131,108 @@ func (prc *PRCreator) GeneratePRTitle(task entity.Task) (string, error) {
 	return fmt.Sprintf("%s %s (%s)", typePrefix, title, task.ID.String()[:8]), nil
 }
 
+// GeneratePRTitleFromPlan creates an English review title from the AI plan.
+func (prc *PRCreator) GeneratePRTitleFromPlan(task entity.Task, plan *entity.Plan) (string, error) {
+	if task.ID == uuid.Nil {
+		return "", fmt.Errorf("task ID cannot be empty")
+	}
+	title := ""
+	if plan != nil {
+		title = strings.TrimSpace(plan.PRTitle)
+	}
+	if title == "" {
+		title = EnglishTaskTitle(task.Title)
+	}
+	if title == "" {
+		title = fmt.Sprintf("Implement task %s", task.ID.String()[:8])
+	}
+	if len(title) > 250 {
+		title = title[:247] + "..."
+	}
+	return title, nil
+}
+
+// EnglishTaskTitle normalizes common task action prefixes for PR and commit
+// subjects while preserving the meaningful filename or task subject.
+func EnglishTaskTitle(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return ""
+	}
+	// Normalize common filler words before translating the action prefix.
+	for _, prefix := range []string{"file ", "tệp ", "tep "} {
+		if strings.HasPrefix(strings.ToLower(title), prefix) {
+			title = strings.TrimSpace(title[len(prefix):])
+			break
+		}
+	}
+	// Convert common action words while preserving filenames and the rest of
+	// the user's concise task title.
+	for _, replacement := range []struct {
+		prefixes []string
+		value    string
+	}{
+		{[]string{"xóa ", "xoá ", "bo ", "bỏ ", "loại bỏ ", "loai bo ", "gỡ ", "go "}, "Remove "},
+		{[]string{"thêm ", "them "}, "Add "},
+		{[]string{"cập nhật ", "cap nhat "}, "Update "},
+		{[]string{"sửa ", "sua "}, "Fix "},
+		{[]string{"tạo ", "tao "}, "Create "},
+		{[]string{"đổi ", "doi "}, "Change "},
+		{[]string{"di chuyển ", "di chuyen "}, "Move "},
+		{[]string{"tối ưu ", "toi uu "}, "Optimize "},
+	} {
+		lower := strings.ToLower(title)
+		for _, prefix := range replacement.prefixes {
+			if strings.HasPrefix(lower, prefix) {
+				subject := strings.TrimSpace(title[len(prefix):])
+				// Vietnamese task titles often say "Bỏ file X". The
+				// English subject should be the natural "Remove X" rather
+				// than the literal and awkward "Remove file X".
+				for _, filler := range []string{"file ", "files ", "tệp ", "tep ", "document ", "documents "} {
+					if strings.HasPrefix(strings.ToLower(subject), filler) {
+						subject = strings.TrimSpace(subject[len(filler):])
+						break
+					}
+				}
+				return replacement.value + subject
+			}
+		}
+	}
+	return title
+}
+
 // GeneratePRDescription creates a comprehensive description for the pull request
 func (prc *PRCreator) GeneratePRDescription(task entity.Task, plan *entity.Plan, execution entity.Execution) (string, error) {
+	title := EnglishTaskTitle(task.Title)
+	if plan != nil && strings.TrimSpace(plan.PRTitle) != "" {
+		title = strings.TrimSpace(plan.PRTitle)
+	}
+	if plan == nil || strings.TrimSpace(plan.Content) == "" {
+		return fmt.Sprintf("## Task Information\n\n- **Title:** %s\n\n## Implementation Plan\n\nNo implementation plan was attached to this execution.", title), nil
+	}
 	var description strings.Builder
-
-	// Add task information
 	description.WriteString("## Task Information\n\n")
-	description.WriteString(fmt.Sprintf("**Task ID:** %s\n", task.ID.String()))
-	description.WriteString(fmt.Sprintf("**Title:** %s\n", task.Title))
-
-	if task.Description != "" {
-		description.WriteString(fmt.Sprintf("**Description:**\n%s\n\n", task.Description))
+	description.WriteString(fmt.Sprintf("- **Title:** %s\n", title))
+	if strings.TrimSpace(task.Description) != "" {
+		description.WriteString(fmt.Sprintf("- **Description:** %s\n", strings.TrimSpace(task.Description)))
 	}
-
-	description.WriteString(fmt.Sprintf("**Priority:** %s\n", task.Priority.GetDisplayName()))
-	description.WriteString(fmt.Sprintf("**Status:** %s\n\n", task.Status.GetDisplayName()))
-
-	// Add task link
-	if prc.baseURL != "" {
-		taskURL := fmt.Sprintf("%s/projects/%s/tasks/%s", prc.baseURL, task.ProjectID.String(), task.ID.String())
-		description.WriteString(fmt.Sprintf("**Task URL:** %s\n\n", taskURL))
-	}
-
-	// Add plan reference if available
-	if plan != nil {
-		description.WriteString("## Implementation Plan\n\n")
-		description.WriteString(fmt.Sprintf("**Plan Status:** %s\n", plan.Status.GetDisplayName()))
-		description.WriteString(fmt.Sprintf("**Plan ID:** %s\n\n", plan.ID.String()))
-
-		// Add truncated plan content for context
-		planContent := plan.Content
-		if len(planContent) > 500 {
-			planContent = planContent[:500] + "...\n\n[See full plan in task details]"
-		}
-		description.WriteString(fmt.Sprintf("**Plan Summary:**\n```\n%s\n```\n\n", planContent))
-	}
-
-	// Add implementation summary
-	description.WriteString("## Implementation Summary\n\n")
-	description.WriteString(fmt.Sprintf("**Execution ID:** %s\n", execution.ID.String()))
-	description.WriteString(fmt.Sprintf("**Execution Status:** %s\n", execution.Status))
-	description.WriteString(fmt.Sprintf("**Started At:** %s\n", execution.StartedAt.Format(time.RFC3339)))
-
-	if execution.CompletedAt != nil {
-		description.WriteString(fmt.Sprintf("**Completed At:** %s\n", execution.CompletedAt.Format(time.RFC3339)))
-		duration := execution.GetDuration()
-		description.WriteString(fmt.Sprintf("**Duration:** %v\n", duration.Round(time.Second)))
-	}
-
-	if execution.Result != nil {
-		description.WriteString(fmt.Sprintf("**Implementation Result:**\n```json\n%s\n```\n\n", *execution.Result))
-	}
-
-	// Add testing instructions
-	description.WriteString("## Testing Instructions\n\n")
-	description.WriteString("1. Check out this branch locally\n")
-	description.WriteString("2. Run the application and verify the implemented functionality\n")
-	description.WriteString("3. Run tests to ensure no regressions:\n")
-	description.WriteString("   ```bash\n")
-	description.WriteString("   make test\n")
-	description.WriteString("   ```\n")
-	description.WriteString("4. Verify the changes meet the requirements outlined in the task description\n\n")
-
-	// Add checklist
-	description.WriteString("## Review Checklist\n\n")
-	description.WriteString("- [ ] Code follows project conventions and style guidelines\n")
-	description.WriteString("- [ ] All tests pass\n")
-	description.WriteString("- [ ] No breaking changes introduced\n")
-	description.WriteString("- [ ] Documentation updated if needed\n")
-	description.WriteString("- [ ] Security considerations addressed\n")
-	description.WriteString("- [ ] Performance impact assessed\n\n")
-
-	// Add metadata
-	description.WriteString("---\n")
-	description.WriteString("*This pull request was automatically generated by Auto-Devs AI system*\n")
-
-	// Sanitize the description before returning
+	description.WriteString("\n## Implementation Plan\n\n")
+	description.WriteString(stripPlanHeading(plan.Content))
 	return prc.SanitizeForGitHub(description.String()), nil
+}
+
+func stripPlanHeading(content string) string {
+	lines := strings.Split(strings.TrimSpace(content), "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			lines = append(lines[:i], lines[i+1:]...)
+		}
+		break
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 // AddTaskLinks creates bidirectional links between the PR and the task
@@ -265,6 +318,14 @@ func (prc *PRCreator) getRepositoryFromTask(task entity.Task) string {
 		if strings.HasPrefix(repoURL, prefix) {
 			repoURL = strings.TrimPrefix(repoURL, prefix)
 			break
+		}
+	}
+
+	// Also accept SSH aliases such as git@github.com-work:owner/repo.git.
+	// Git's SSH host alias is not part of the GitHub repository path.
+	if strings.HasPrefix(repoURL, "git@") {
+		if separator := strings.Index(repoURL, ":"); separator >= 0 {
+			repoURL = repoURL[separator+1:]
 		}
 	}
 

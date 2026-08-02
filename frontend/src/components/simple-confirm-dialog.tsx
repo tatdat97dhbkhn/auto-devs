@@ -28,7 +28,7 @@ export function SimpleConfirmDialog({
   onConfirm,
   destructive = false,
   confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  cancelText = 'Huỷ',
 }: SimpleConfirmDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
 

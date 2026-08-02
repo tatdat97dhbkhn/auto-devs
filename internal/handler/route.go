@@ -42,6 +42,8 @@ func SetupRoutes(router *gin.Engine, projectUsecase usecase.ProjectUsecase, task
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
+		v1.GET("/ai-executors/models", ListLocalAIModels)
+
 		// Project routes
 		projects := v1.Group("/projects")
 		{
@@ -88,6 +90,7 @@ func SetupRoutes(router *gin.Engine, projectUsecase usecase.ProjectUsecase, task
 			// Plan endpoints
 			tasks.GET("/:id/plans", taskHandler.GetTaskPlans)
 			tasks.PUT("/:id/plans/:planId", taskHandler.UpdateTaskPlan)
+			tasks.POST("/:id/plans/:planId/revise", taskHandler.RevisePlan)
 
 			// Open with Cursor endpoint
 			tasks.POST("/:id/open-with-cursor", taskHandler.OpenWithCursor)

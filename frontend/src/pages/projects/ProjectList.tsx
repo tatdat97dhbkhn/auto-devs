@@ -86,11 +86,11 @@ export function ProjectList() {
     return (
       <div className='flex h-full items-center justify-center'>
         <div className='text-center'>
-          <h3 className='text-lg font-semibold'>Error loading projects</h3>
+          <h3 className='text-lg font-semibold'>Không thể tải dự án</h3>
           <p className='text-muted-foreground'>
             {activeError instanceof Error
               ? activeError.message
-              : 'An unexpected error occurred'}
+              : 'Đã xảy ra lỗi không mong muốn'}
           </p>
         </div>
       </div>
@@ -110,14 +110,14 @@ export function ProjectList() {
       <Main>
         <div className='space-y-0.5'>
           <div className='flex items-center justify-between'>
-            <h1 className='text-2xl font-bold tracking-tight'>Projects</h1>
+            <h1 className='text-2xl font-bold tracking-tight'>Dự án</h1>
             <Button onClick={() => setCreateModalOpen(true)}>
               <Plus className='mr-2 h-4 w-4' />
-              New Project
+              Dự án mới
             </Button>
           </div>
           <p className='text-muted-foreground'>
-            Manage your development projects and track their progress.
+            Quản lý các dự án phát triển và theo dõi tiến độ.
           </p>
         </div>
         <Separator className='my-4 lg:my-6' />
@@ -128,7 +128,7 @@ export function ProjectList() {
               <div className='relative max-w-sm flex-1'>
                 <Search className='text-muted-foreground absolute top-2.5 left-2 h-4 w-4' />
                 <Input
-                  placeholder='Search projects...'
+                  placeholder='Tìm kiếm dự án...'
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className='pl-8'
@@ -141,12 +141,12 @@ export function ProjectList() {
                 onValueChange={(value: any) => setSortBy(value)}
               >
                 <SelectTrigger className='w-[180px]'>
-                  <SelectValue placeholder='Sort by' />
+                  <SelectValue placeholder='Sắp xếp theo' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='name'>Name</SelectItem>
-                  <SelectItem value='created_at'>Created</SelectItem>
-                  <SelectItem value='updated_at'>Updated</SelectItem>
+                  <SelectItem value='name'>Tên</SelectItem>
+                  <SelectItem value='created_at'>Ngày tạo</SelectItem>
+                  <SelectItem value='updated_at'>Ngày cập nhật</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -157,8 +157,8 @@ export function ProjectList() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='asc'>Asc</SelectItem>
-                  <SelectItem value='desc'>Desc</SelectItem>
+                  <SelectItem value='asc'>Tăng dần</SelectItem>
+                  <SelectItem value='desc'>Giảm dần</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -167,10 +167,10 @@ export function ProjectList() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
-              <TabsTrigger value='active'>Active Projects</TabsTrigger>
+              <TabsTrigger value='active'>Dự án đang hoạt động</TabsTrigger>
               <TabsTrigger value='archived' className='flex items-center gap-2'>
                 <Archive className='h-4 w-4' />
-                Archived
+                Đã lưu trữ
                 {archivedProjectsData?.projects?.length &&
                   archivedProjectsData?.projects?.length > 0 && (
                     <Badge variant='secondary' className='ml-1'>
@@ -203,15 +203,17 @@ export function ProjectList() {
                     <div className='bg-muted mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full'>
                       <GitBranch className='text-muted-foreground h-6 w-6' />
                     </div>
-                    <h3 className='text-lg font-semibold'>No projects found</h3>
+                    <h3 className='text-lg font-semibold'>
+                      Không tìm thấy dự án nào
+                    </h3>
                     <p className='text-muted-foreground mb-4'>
                       {search
-                        ? 'Try adjusting your search terms'
-                        : 'Get started by creating your first project'}
+                        ? 'Hãy thử điều chỉnh từ khoá tìm kiếm'
+                        : 'Bắt đầu bằng cách tạo dự án đầu tiên'}
                     </p>
                     <Button onClick={() => setCreateModalOpen(true)}>
                       <Plus className='mr-2 h-4 w-4' />
-                      Create Project
+                      Tạo dự án
                     </Button>
                   </div>
                 </div>
@@ -222,8 +224,8 @@ export function ProjectList() {
                 activeProjectsData &&
                 activeProjectsData.projects.length > 0 && (
                   <div className='text-muted-foreground text-center text-sm'>
-                    Showing {activeProjectsData.projects.length} of{' '}
-                    {activeProjectsData.total} active projects
+                    Hiển thị {activeProjectsData.projects.length} /{' '}
+                    {activeProjectsData.total} dự án đang hoạt động
                   </div>
                 )}
             </TabsContent>
@@ -257,12 +259,12 @@ export function ProjectList() {
                         <Archive className='text-muted-foreground h-6 w-6' />
                       </div>
                       <h3 className='text-lg font-semibold'>
-                        No archived projects
+                        Chưa có dự án lưu trữ
                       </h3>
                       <p className='text-muted-foreground mb-4'>
                         {search
-                          ? 'Try adjusting your search terms'
-                          : 'Archived projects will appear here'}
+                          ? 'Hãy thử điều chỉnh từ khoá tìm kiếm'
+                          : 'Dự án lưu trữ sẽ hiển thị tại đây'}
                       </p>
                     </div>
                   </div>
@@ -273,8 +275,8 @@ export function ProjectList() {
                 archivedProjectsData &&
                 archivedProjectsData.projects.length > 0 && (
                   <div className='text-muted-foreground text-center text-sm'>
-                    Showing {archivedProjectsData.projects.length} of{' '}
-                    {archivedProjectsData.total} archived projects
+                    Hiển thị {archivedProjectsData.projects.length} /{' '}
+                    {archivedProjectsData.total} dự án đã lưu trữ
                   </div>
                 )}
             </TabsContent>
@@ -307,12 +309,12 @@ function ProjectCard({ project }: { project: Project }) {
             <div className='space-y-1'>
               <CardTitle className='line-clamp-1'>{project.name}</CardTitle>
               <CardDescription className='line-clamp-2'>
-                {project.description || 'No description provided'}
+                {project.description || 'Chưa có mô tả'}
               </CardDescription>
             </div>
             <Badge variant='secondary' className='shrink-0'>
               <Activity className='mr-1 h-3 w-3' />
-              Active
+              Đang hoạt động
             </Badge>
           </div>
         </CardHeader>
@@ -321,29 +323,41 @@ function ProjectCard({ project }: { project: Project }) {
           <div className='text-muted-foreground flex items-center gap-2 text-sm'>
             <GitBranch className='h-4 w-4' />
             <span className='truncate'>
-              {project.repository_url || 'No repository URL'}
+              {project.repository_url || 'Chưa có URL repository'}
             </span>
           </div>
 
           {hasActiveTasks && (
             <div className='flex flex-wrap gap-1'>
               {counts.planning > 0 && (
-                <Badge variant='outline' className='border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'>
+                <Badge
+                  variant='outline'
+                  className='border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                >
                   Planning: {counts.planning}
                 </Badge>
               )}
               {counts.plan_reviewing > 0 && (
-                <Badge variant='outline' className='border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300'>
+                <Badge
+                  variant='outline'
+                  className='border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                >
                   Plan Review: {counts.plan_reviewing}
                 </Badge>
               )}
               {counts.implementing > 0 && (
-                <Badge variant='outline' className='border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'>
+                <Badge
+                  variant='outline'
+                  className='border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                >
                   Implementing: {counts.implementing}
                 </Badge>
               )}
               {counts.code_reviewing > 0 && (
-                <Badge variant='outline' className='border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300'>
+                <Badge
+                  variant='outline'
+                  className='border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                >
                   Code Review: {counts.code_reviewing}
                 </Badge>
               )}
@@ -382,7 +396,7 @@ function ArchivedProjectCard({
               {project.name}
             </CardTitle>
             <CardDescription className='line-clamp-2'>
-              {project.description || 'No description provided'}
+              {project.description || 'Chưa có mô tả'}
             </CardDescription>
           </div>
         </div>
@@ -398,15 +412,15 @@ function ArchivedProjectCard({
             </span>
           </div>
           <SimpleConfirmDialog
-            title='Restore Project'
-            description={`Are you sure you want to restore "${project.name}"? This will make it active again.`}
+            title='Khôi phục dự án'
+            description={`Bạn có chắc muốn khôi phục "${project.name}"? Dự án sẽ hoạt động trở lại.`}
             onConfirm={() => onRestore(project.id)}
-            confirmText='Restore'
-            cancelText='Cancel'
+            confirmText='Khôi phục'
+            cancelText='Huỷ'
           >
             <Button variant='outline' size='sm'>
               <RotateCcw className='mr-2 h-4 w-4' />
-              Restore
+              Khôi phục
             </Button>
           </SimpleConfirmDialog>
         </div>

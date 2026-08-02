@@ -9,7 +9,10 @@ interface ExecutionLogsPannelProps {
   selectedLogTypes?: string[]
 }
 
-function getLogType(log: { log_type?: string; message?: string }): string | undefined {
+function getLogType(log: {
+  log_type?: string
+  message?: string
+}): string | undefined {
   if (log.log_type) return log.log_type
   if (log.message) {
     try {
@@ -21,7 +24,10 @@ function getLogType(log: { log_type?: string; message?: string }): string | unde
   return undefined
 }
 
-export function ExecutionLogsPannel({ executionId, selectedLogTypes }: ExecutionLogsPannelProps) {
+export function ExecutionLogsPannel({
+  executionId,
+  selectedLogTypes,
+}: ExecutionLogsPannelProps) {
   const { data: execution, isLoading, error } = useExecution(executionId)
   const allLogs = (execution?.logs || []).sort((a, b) => a.line - b.line)
   const logs =
@@ -52,7 +58,7 @@ export function ExecutionLogsPannel({ executionId, selectedLogTypes }: Execution
   return (
     <div className='h-[400px]'>
       {isLoading && (
-        <div className='text-muted-foreground text-sm'>Loading logs...</div>
+        <div className='text-muted-foreground text-sm'>Đang tải nhật ký...</div>
       )}
       {error && (
         <div className='mb-2 flex items-center gap-2 rounded border border-red-200 bg-red-50 p-2 text-red-700'>
@@ -84,7 +90,9 @@ export function ExecutionLogsPannel({ executionId, selectedLogTypes }: Execution
               </div>
             ))
           ) : (
-            <span className='text-muted-foreground'>No logs to display.</span>
+            <span className='text-muted-foreground'>
+              Không có nhật ký để hiển thị.
+            </span>
           )}
         </ScrollArea>
       )}

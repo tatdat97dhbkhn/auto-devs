@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"log/slog"
 	"os"
@@ -54,6 +55,9 @@ func NewService(appConfig *config.CentrifugeRedisBrokerConfig) *Service {
 		presenceProcessor: presenceProcessor,
 		logger:            logger,
 	}
+	// This broker is separate from Centrifuge's internal broker: workers use it
+	// to publish application events without owning a WebSocket node.
+	service.redisBroker = NewRedisBroker(appConfig.Address, appConfig.Password, appConfig.DB, hub)
 
 	log.Printf("WebSocket service created successfully")
 	return service
@@ -67,6 +71,11 @@ func (s *Service) Start() error {
 		if err != nil {
 			log.Printf("Failed to start WebSocket service: %v", err)
 			return err
+		}
+		if s.redisBroker != nil {
+			if err := s.redisBroker.Start(); err != nil {
+				s.logger.Warn("application WebSocket Redis broker unavailable", "error", err)
+			}
 		}
 		log.Printf("WebSocket service started successfully")
 		return nil
@@ -206,6 +215,13 @@ func (s *Service) BroadcastMessage(msgType MessageType, data interface{}, projec
 		return err
 	}
 
+	if s.redisBroker != nil && s.redisBroker.IsRunning() {
+		dataBytes, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		return s.redisBroker.PublishMessage(&BrokerMessage{Type: msgType, Data: dataBytes, ProjectID: projectID, UserID: userID, Timestamp: message.Timestamp, MessageID: message.MessageID, Source: "server"})
+	}
 	s.hub.Broadcast(message, projectID, userID, nil)
 	return nil
 }

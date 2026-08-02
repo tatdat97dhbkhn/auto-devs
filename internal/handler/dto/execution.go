@@ -20,17 +20,21 @@ type ExecutionUpdateRequest struct {
 
 // Execution response DTOs
 type ExecutionResponse struct {
-	ID          uuid.UUID               `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
-	TaskID      uuid.UUID               `json:"task_id" example:"123e4567-e89b-12d3-a456-426614174000"`
-	Status      entity.ExecutionStatus  `json:"status" example:"running"`
-	StartedAt   time.Time               `json:"started_at" example:"2024-01-01T00:00:00Z"`
-	CompletedAt *time.Time              `json:"completed_at,omitempty" example:"2024-01-01T01:00:00Z"`
-	Error       string                  `json:"error,omitempty" example:"Process failed"`
-	Progress    float64                 `json:"progress" example:"0.75"`
-	Result      *entity.ExecutionResult `json:"result,omitempty"`
-	Duration    *time.Duration          `json:"duration,omitempty" swaggertype:"integer" example:"3600000000000"`
-	CreatedAt   time.Time               `json:"created_at" example:"2024-01-01T00:00:00Z"`
-	UpdatedAt   time.Time               `json:"updated_at" example:"2024-01-01T00:00:00Z"`
+	ID              uuid.UUID               `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	TaskID          uuid.UUID               `json:"task_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	AIType          string                  `json:"ai_type,omitempty" example:"codex"`
+	Model           string                  `json:"model,omitempty" example:"gpt-5.6-luna"`
+	ReasoningEffort string                  `json:"reasoning_effort,omitempty" example:"medium"`
+	ExecutionType   entity.ExecutionType    `json:"execution_type,omitempty" example:"PLANNING"`
+	Status          entity.ExecutionStatus  `json:"status" example:"running"`
+	StartedAt       time.Time               `json:"started_at" example:"2024-01-01T00:00:00Z"`
+	CompletedAt     *time.Time              `json:"completed_at,omitempty" example:"2024-01-01T01:00:00Z"`
+	Error           string                  `json:"error,omitempty" example:"Process failed"`
+	Progress        float64                 `json:"progress" example:"0.75"`
+	Result          *entity.ExecutionResult `json:"result,omitempty"`
+	Duration        *time.Duration          `json:"duration,omitempty" swaggertype:"integer" example:"3600000000000"`
+	CreatedAt       time.Time               `json:"created_at" example:"2024-01-01T00:00:00Z"`
+	UpdatedAt       time.Time               `json:"updated_at" example:"2024-01-01T00:00:00Z"`
 }
 
 type ExecutionWithLogsResponse struct {
@@ -53,16 +57,16 @@ type ExecutionLogResponse struct {
 	Timestamp   time.Time       `json:"timestamp" example:"2024-01-01T00:00:00Z"`
 	Source      string          `json:"source" example:"stdout"`
 	Metadata    interface{}     `json:"metadata,omitempty"`
-    // Structured fields
-    LogType       string      `json:"log_type,omitempty" example:"assistant"`
-    ToolName      string      `json:"tool_name,omitempty" example:"read_file"`
-    ToolUseID     string      `json:"tool_use_id,omitempty" example:"toolu_01ABC..."`
-    ParsedContent interface{} `json:"parsed_content,omitempty"`
-    IsError       *bool       `json:"is_error,omitempty"`
-    DurationMs    *int        `json:"duration_ms,omitempty" example:"1234"`
-    NumTurns      *int        `json:"num_turns,omitempty" example:"5"`
-	CreatedAt   time.Time       `json:"created_at" example:"2024-01-01T00:00:00Z"`
-	Line        int             `json:"line" example:"1"`
+	// Structured fields
+	LogType       string      `json:"log_type,omitempty" example:"assistant"`
+	ToolName      string      `json:"tool_name,omitempty" example:"read_file"`
+	ToolUseID     string      `json:"tool_use_id,omitempty" example:"toolu_01ABC..."`
+	ParsedContent interface{} `json:"parsed_content,omitempty"`
+	IsError       *bool       `json:"is_error,omitempty"`
+	DurationMs    *int        `json:"duration_ms,omitempty" example:"1234"`
+	NumTurns      *int        `json:"num_turns,omitempty" example:"5"`
+	CreatedAt     time.Time   `json:"created_at" example:"2024-01-01T00:00:00Z"`
+	Line          int         `json:"line" example:"1"`
 }
 
 type ExecutionLogListResponse struct {
@@ -88,9 +92,9 @@ type ExecutionLogFilterQuery struct {
 	Levels     []string   `form:"levels" example:"info,error"`
 	Source     *string    `form:"source" example:"stdout"`
 	Sources    []string   `form:"sources" example:"stdout,stderr"`
-    LogType    *string    `form:"log_type" example:"assistant"`
-    ToolName   *string    `form:"tool_name" example:"read_file"`
-    ToolUseID  *string    `form:"tool_use_id" example:"toolu_01ABC..."`
+	LogType    *string    `form:"log_type" example:"assistant"`
+	ToolName   *string    `form:"tool_name" example:"read_file"`
+	ToolUseID  *string    `form:"tool_use_id" example:"toolu_01ABC..."`
 	Search     *string    `form:"search" example:"error"`
 	TimeAfter  *time.Time `form:"time_after" example:"2024-01-01T00:00:00Z"`
 	TimeBefore *time.Time `form:"time_before" example:"2024-12-31T23:59:59Z"`
@@ -101,14 +105,18 @@ type ExecutionLogFilterQuery struct {
 // Conversion functions
 func ToExecutionResponse(execution *entity.Execution) ExecutionResponse {
 	response := ExecutionResponse{
-		ID:        execution.ID,
-		TaskID:    execution.TaskID,
-		Status:    execution.Status,
-		StartedAt: execution.StartedAt,
-		Error:     execution.ErrorMessage,
-		Progress:  execution.Progress,
-		CreatedAt: execution.CreatedAt,
-		UpdatedAt: execution.UpdatedAt,
+		ID:              execution.ID,
+		TaskID:          execution.TaskID,
+		AIType:          execution.AIType,
+		Model:           execution.Model,
+		ReasoningEffort: execution.ReasoningEffort,
+		ExecutionType:   execution.ExecutionType,
+		Status:          execution.Status,
+		StartedAt:       execution.StartedAt,
+		Error:           execution.ErrorMessage,
+		Progress:        execution.Progress,
+		CreatedAt:       execution.CreatedAt,
+		UpdatedAt:       execution.UpdatedAt,
 	}
 
 	if execution.CompletedAt != nil {
@@ -150,12 +158,12 @@ func ToExecutionLogResponse(log *entity.ExecutionLog) ExecutionLogResponse {
 		Message:     log.Message,
 		Timestamp:   log.Timestamp,
 		Source:      log.Source,
-        LogType:     log.LogType,
-        ToolName:    log.ToolName,
-        ToolUseID:   log.ToolUseID,
-        IsError:     log.IsError,
-        DurationMs:  log.DurationMs,
-        NumTurns:    log.NumTurns,
+		LogType:     log.LogType,
+		ToolName:    log.ToolName,
+		ToolUseID:   log.ToolUseID,
+		IsError:     log.IsError,
+		DurationMs:  log.DurationMs,
+		NumTurns:    log.NumTurns,
 		CreatedAt:   log.CreatedAt,
 		Line:        log.Line,
 	}
@@ -165,9 +173,9 @@ func ToExecutionLogResponse(log *entity.ExecutionLog) ExecutionLogResponse {
 		response.Metadata = log.Metadata
 	}
 
-    if log.ParsedContent != nil {
-        response.ParsedContent = log.ParsedContent
-    }
+	if log.ParsedContent != nil {
+		response.ParsedContent = log.ParsedContent
+	}
 
 	return response
 }

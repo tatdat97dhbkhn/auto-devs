@@ -38,7 +38,7 @@ export function BoardToolbar({
   return (
     <div className='flex items-center justify-between border-b p-4'>
       <div className='flex items-center gap-3'>
-        <h1 className='text-2xl font-bold'>Task Board</h1>
+        <h1 className='text-2xl font-bold'>Bảng công việc</h1>
         <Separator orientation='vertical' className='h-6' />
 
         {/* Connection Status */}
@@ -111,7 +111,7 @@ export function BoardToolbar({
 
             <DropdownMenuItem>
               <Download className='mr-2 h-4 w-4' />
-              Export Tasks
+              Xuất công việc
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

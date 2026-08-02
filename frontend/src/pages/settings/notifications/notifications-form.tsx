@@ -36,7 +36,7 @@ export function NotificationsForm() {
     setSoundEnabled(enabled)
     soundService.setEnabled(enabled)
     toast.success(
-      enabled ? 'Sound notifications enabled' : 'Sound notifications disabled'
+      enabled ? 'Đã bật thông báo âm thanh' : 'Đã tắt thông báo âm thanh'
     )
   }
 
@@ -48,18 +48,18 @@ export function NotificationsForm() {
   const testPlanSound = async () => {
     try {
       await soundService.testPlanSound()
-      toast.success('Plan completion sound played!')
+      toast.success('Đã phát âm thanh hoàn tất kế hoạch!')
     } catch (error) {
-      toast.error('Failed to play sound. Check browser permissions.')
+      toast.error('Không thể phát âm thanh. Hãy kiểm tra quyền trình duyệt.')
     }
   }
 
   const testCodeSound = async () => {
     try {
       await soundService.testCodeSound()
-      toast.success('Code completion sound played!')
+      toast.success('Đã phát âm thanh hoàn tất mã nguồn!')
     } catch (error) {
-      toast.error('Failed to play sound. Check browser permissions.')
+      toast.error('Không thể phát âm thanh. Hãy kiểm tra quyền trình duyệt.')
     }
   }
 
@@ -67,17 +67,18 @@ export function NotificationsForm() {
     <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <CardTitle>Sound Notifications</CardTitle>
+          <CardTitle>Thông báo âm thanh</CardTitle>
           <CardDescription>
-            Configure sound notifications for task status changes
+            Cấu hình thông báo âm thanh khi trạng thái công việc thay đổi
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-6'>
           <div className='flex items-center justify-between'>
             <div className='space-y-1'>
-              <Label htmlFor='sound-enabled'>Enable sound notifications</Label>
+              <Label htmlFor='sound-enabled'>Bật thông báo âm thanh</Label>
               <p className='text-muted-foreground text-sm'>
-                Play sounds when tasks move to Plan Review or Code Review status
+                Phát âm thanh khi công việc chuyển sang trạng thái Duyệt kế
+                hoạch hoặc Duyệt mã nguồn
               </p>
             </div>
             <Switch
@@ -90,7 +91,7 @@ export function NotificationsForm() {
           {soundEnabled && (
             <>
               <div className='space-y-3'>
-                <Label htmlFor='volume'>Volume</Label>
+                <Label htmlFor='volume'>Âm lượng</Label>
                 <div className='flex items-center space-x-3'>
                   <input
                     id='volume'
@@ -111,35 +112,36 @@ export function NotificationsForm() {
               </div>
 
               <div className='space-y-3'>
-                <Label>Test Sounds</Label>
+                <Label>Thử âm thanh</Label>
                 <div className='flex gap-3'>
                   <Button variant='outline' onClick={testPlanSound}>
-                    Test Plan Complete Sound
+                    Thử âm thanh hoàn tất kế hoạch
                   </Button>
                   <Button variant='outline' onClick={testCodeSound}>
-                    Test Code Complete Sound
+                    Thử âm thanh hoàn tất mã nguồn
                   </Button>
                   <Button
                     variant='outline'
                     onClick={() => soundService.debugAudioElements()}
                     className='text-xs'
                   >
-                    Debug Console
+                    Gỡ lỗi console
                   </Button>
                 </div>
                 <p className='text-muted-foreground text-sm'>
-                  • Plan Complete: Plays when task moves to "Plan Review" status
-                  <br />• Code Complete: Plays when task moves to "Code Review"
-                  status
+                  • Hoàn tất kế hoạch: Phát khi công việc chuyển sang trạng thái
+                  Duyệt kế hoạch
+                  <br />• Hoàn tất mã nguồn: Phát khi công việc chuyển sang
+                  trạng thái Duyệt mã nguồn
                 </p>
               </div>
 
               {/* Sound Service Status */}
               <div className='space-y-3'>
-                <Label>Sound Service Status</Label>
+                <Label>Trạng thái dịch vụ âm thanh</Label>
                 <div className='bg-muted space-y-2 rounded-lg p-3 text-sm'>
                   <div className='flex items-center gap-2'>
-                    <span className='font-medium'>Status:</span>
+                    <span className='font-medium'>Trạng thái:</span>
                     <span
                       className={`rounded px-2 py-1 text-xs ${
                         soundStatus.isInitialized
@@ -147,21 +149,23 @@ export function NotificationsForm() {
                           : 'bg-yellow-100 text-yellow-800'
                       }`}
                     >
-                      {soundStatus.isInitialized ? 'Ready' : 'Initializing...'}
+                      {soundStatus.isInitialized
+                        ? 'Sẵn sàng'
+                        : 'Đang khởi tạo...'}
                     </span>
                   </div>
                   <div className='flex items-center gap-2'>
-                    <span className='font-medium'>Loaded Sounds:</span>
+                    <span className='font-medium'>Âm thanh đã tải:</span>
                     <span className='text-muted-foreground'>
                       {soundStatus.loadedSounds.length > 0
                         ? soundStatus.loadedSounds.join(', ')
-                        : 'None'}
+                        : 'Không có'}
                     </span>
                   </div>
                   {!soundStatus.isInitialized && (
                     <p className='text-muted-foreground text-xs'>
-                      Sound service is initializing. Please wait a moment before
-                      testing sounds.
+                      Dịch vụ âm thanh đang khởi tạo. Vui lòng đợi một chút
+                      trước khi thử âm thanh.
                     </p>
                   )}
                 </div>

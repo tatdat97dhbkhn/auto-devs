@@ -48,10 +48,10 @@ export function useCreateProject() {
       projectsApi.createProject(project),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects })
-      toast.success('Project created successfully!')
+      toast.success('Đã tạo dự án thành công!')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create project')
+      toast.error(error.response?.data?.message || 'Không thể tạo dự án')
     },
   })
 }
@@ -73,10 +73,10 @@ export function useUpdateProject() {
         QUERY_KEYS.project(updatedProject.id),
         updatedProject
       )
-      toast.success('Project updated successfully!')
+      toast.success('Đã cập nhật dự án thành công!')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update project')
+      toast.error(error.response?.data?.message || 'Không thể cập nhật dự án')
     },
   })
 }
@@ -88,10 +88,10 @@ export function useDeleteProject() {
     mutationFn: (projectId: string) => projectsApi.deleteProject(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects })
-      toast.success('Project deleted successfully!')
+      toast.success('Đã xoá dự án thành công!')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete project')
+      toast.error(error.response?.data?.message || 'Không thể xoá dự án')
     },
   })
 }
@@ -103,10 +103,10 @@ export function useRestoreProject() {
     mutationFn: (projectId: string) => projectsApi.restoreProject(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects })
-      toast.success('Project restored successfully!')
+      toast.success('Đã khôi phục dự án thành công!')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to restore project')
+      toast.error(error.response?.data?.message || 'Không thể khôi phục dự án')
     },
   })
 }
@@ -116,11 +116,11 @@ export function useReinitGitRepository() {
     mutationFn: (projectId: string) =>
       projectsApi.reinitGitRepository(projectId),
     onSuccess: () => {
-      toast.success('Git repository reinitialized successfully!')
+      toast.success('Đã khởi tạo lại repository Git thành công!')
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || 'Failed to reinitialize Git repository'
+        error.response?.data?.message || 'Không thể khởi tạo lại repository Git'
       )
     },
   })

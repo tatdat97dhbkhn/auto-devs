@@ -31,3 +31,6 @@ mcp-server/dist
 # build
 cmd/npx/dist
 cmd/npx/*.tgz
+
+.autodevs-worktrees
+.idea

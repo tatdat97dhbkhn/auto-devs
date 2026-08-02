@@ -18,9 +18,9 @@ import {
   useStartImplementingDirect,
   useCreateWorktree,
 } from '@/hooks/use-tasks'
+import { useDoneTasks } from '@/hooks/use-tasks'
 import { BoardFilters } from './board-filters'
 import { KanbanBoard } from './kanban-board'
-import { useDoneTasks } from '@/hooks/use-tasks'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { TaskFormModal } from './task-form-modal'
 
@@ -36,7 +36,9 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
   const [filters, setFilters] = useState<TaskFilters>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [localTasks, setLocalTasks] = useState<Task[]>([])
-  const [showDoneTasks, setShowDoneTasks] = useState(false)
+  // Load completed tasks together with the board so the DONE column is
+  // visible immediately instead of requiring a manual action.
+  const [showDoneTasks, setShowDoneTasks] = useState(true)
 
   // Get taskId from either route params or search params
   const currentTaskId = routeParams.taskId || searchParams.taskId
@@ -156,13 +158,23 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
           // Revert deletion if failed
           if (originalTask) {
             setLocalTasks((prev) => [...prev, originalTask])
-            toast.error('Failed to delete task')
+            toast.error('Không thể xoá công việc')
           }
         }
       )
 
       try {
         await deleteTaskMutation.mutateAsync(taskId)
+
+        if (taskDetailSheet.task?.id === taskId) {
+          setTaskDetailSheet({ open: false, task: null })
+          navigate({
+            to: '/projects/$projectId',
+            params: { projectId },
+            replace: true,
+          })
+        }
+
         // Confirm the optimistic update
         // Note: This will be handled by WebSocket message handler
       } catch (error) {
@@ -194,6 +206,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     taskId: string,
     branchName: string,
     aiType: string,
+    model: string,
+    reasoningEffort: string,
     autoImplement: boolean,
     useRemoteBranch: boolean
   ) => {
@@ -203,6 +217,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
         request: {
           branch_name: branchName,
           ai_type: aiType,
+          model,
+          reasoning_effort: reasoningEffort,
           auto_implement: autoImplement,
           use_remote_branch: useRemoteBranch,
         },
@@ -214,12 +230,15 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
 
   const handleApprovePlanAndStartImplement = async (
     taskId: string,
-    aiType: string
+    planId: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string
   ) => {
     try {
       await approvePlanAndStartImplementMutation.mutateAsync({
         taskId,
-        request: { ai_type: aiType },
+        request: { plan_id: planId, ai_type: aiType, model, reasoning_effort: reasoningEffort },
       })
     } catch (error) {
       // Error is handled by the mutation hook
@@ -230,6 +249,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     taskId: string,
     branchName: string,
     aiType: string,
+    model: string,
+    reasoningEffort: string,
     useRemoteBranch: boolean
   ) => {
     try {
@@ -238,6 +259,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
         request: {
           branch_name: branchName,
           ai_type: aiType,
+          model,
+          reasoning_effort: reasoningEffort,
           use_remote_branch: useRemoteBranch,
         },
       })
@@ -358,7 +381,7 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
                 setLocalTasks((prev) =>
                   prev.map((t) => (t.id === taskId ? originalTask : t))
                 )
-                toast.error('Failed to update task status')
+                toast.error('Không thể cập nhật trạng thái công việc')
               }
             )
 

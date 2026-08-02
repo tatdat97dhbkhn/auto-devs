@@ -89,7 +89,10 @@ export function ExecutionItem({
             </CollapsibleTrigger>
             <CollapsibleContent className='space-y-4'>
               <div className='border-t pt-4'>
-                <ExecutionDetails execution={execution} selectedLogTypes={selectedLogTypes} />
+                <ExecutionDetails
+                  execution={execution}
+                  selectedLogTypes={selectedLogTypes}
+                />
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -104,7 +107,12 @@ export function ExecutionItem({
                 />
               )}
             </div>
-            {!compact && <ExecutionDetails execution={execution} selectedLogTypes={selectedLogTypes} />}
+            {!compact && (
+              <ExecutionDetails
+                execution={execution}
+                selectedLogTypes={selectedLogTypes}
+              />
+            )}
           </div>
         )}
       </CardContent>
@@ -129,7 +137,7 @@ function ExecutionHeader({
         {execution.error && (
           <Badge variant='destructive' className='gap-1'>
             <AlertTriangle className='h-3 w-3' />
-            Error
+            Lỗi
           </Badge>
         )}
       </div>
@@ -137,6 +145,12 @@ function ExecutionHeader({
       <div className='min-w-0 flex-1'>
         <div className='text-muted-foreground flex items-center gap-2 text-sm'>
           <span>#{execution.id.slice(-8)}</span>
+          <span>•</span>
+          {execution.ai_type && <span>{execution.ai_type}</span>}
+          {execution.model && <span>• {execution.model}</span>}
+          {execution.reasoning_effort && (
+            <span>• {execution.reasoning_effort}</span>
+          )}
           <span>•</span>
           <ExecutionDuration
             startedAt={execution.started_at}
@@ -175,7 +189,7 @@ function ExecutionDetails({
             <AlertTriangle className='mt-0.5 h-4 w-4 flex-shrink-0 text-red-500' />
             <div className='min-w-0 flex-1'>
               <div className='mb-1 text-sm font-medium text-red-800'>
-                Execution Error
+                Lỗi thực thi
               </div>
               <div className='text-sm break-words text-red-700'>
                 {execution.error}
@@ -185,7 +199,10 @@ function ExecutionDetails({
         </div>
       )}
 
-      <ExecutionLogsPannel executionId={execution.id} selectedLogTypes={selectedLogTypes} />
+      <ExecutionLogsPannel
+        executionId={execution.id}
+        selectedLogTypes={selectedLogTypes}
+      />
     </div>
   )
 }
@@ -243,7 +260,7 @@ function ExecutionActions({
       <DropdownMenuTrigger asChild>
         <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
           <MoreHorizontal className='h-4 w-4' />
-          <span className='sr-only'>Open menu</span>
+          <span className='sr-only'>Mở trình đơn</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>

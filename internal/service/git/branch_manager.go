@@ -20,8 +20,8 @@ type BranchNamingConfig struct {
 // DefaultBranchNamingConfig returns the default branch naming configuration
 func DefaultBranchNamingConfig() *BranchNamingConfig {
 	return &BranchNamingConfig{
-		Prefix:    "task",
-		IncludeID: true,
+		Prefix:    "feature/",
+		IncludeID: false,
 		Separator: "-",
 		MaxLength: 255,
 		UseSlug:   true,
@@ -84,6 +84,8 @@ func (bm *BranchManager) GenerateBranchName(taskID string, title string) (string
 
 	// Join parts with separator
 	branchName := strings.Join(parts, bm.config.Separator)
+	branchName = strings.Replace(branchName, "/"+bm.config.Separator, "/", 1)
+	branchName = strings.TrimSuffix(branchName, "/")
 
 	// Validate and clean the branch name
 	branchName = bm.cleanBranchName(branchName)
@@ -108,7 +110,8 @@ func (bm *BranchManager) GenerateBranchName(taskID string, title string) (string
 
 // slugifyTitle converts a title to a URL-friendly slug
 func (bm *BranchManager) slugifyTitle(title string) string {
-	// Convert to lowercase
+	// This function only creates a URL-safe slug. Translation and semantic
+	// naming are responsibilities of the AI-generated plan metadata.
 	slug := strings.ToLower(title)
 
 	// Replace spaces and special characters with separator

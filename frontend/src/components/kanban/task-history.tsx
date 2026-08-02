@@ -120,7 +120,7 @@ export function TaskHistory({ open, onOpenChange }: TaskHistoryProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-h-[80vh] overflow-y-auto sm:max-w-[600px]'>
         <DialogHeader>
-          <DialogTitle>Task History</DialogTitle>
+          <DialogTitle>Lịch sử công việc</DialogTitle>
           <DialogDescription>
             Timeline of changes and updates to this task.
           </DialogDescription>
@@ -202,7 +202,7 @@ export function TaskHistory({ open, onOpenChange }: TaskHistoryProps) {
         {history.length === 0 && (
           <div className='py-8 text-center text-gray-500'>
             <Clock className='mx-auto mb-4 h-12 w-12 text-gray-300' />
-            <p>No history available for this task.</p>
+            <p>Chưa có lịch sử cho công việc này.</p>
           </div>
         )}
       </DialogContent>

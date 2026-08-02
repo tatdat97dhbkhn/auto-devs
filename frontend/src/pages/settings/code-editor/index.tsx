@@ -4,7 +4,7 @@ import { CodeEditorForm } from './code-editor-form'
 export default function CodeEditor() {
   return (
     <ContentSection
-      title='Code Editor'
+      title='Trình soạn thảo mã'
       desc='Maybe Vscode, Cursor or Windows Terminal?'
     >
       <CodeEditorForm />

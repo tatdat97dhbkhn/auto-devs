@@ -85,8 +85,6 @@ func (h *ProjectHandler) GetProject(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-
-
 // ListProjects godoc
 // @Summary List all projects
 // @Description Get a list of all projects
@@ -102,7 +100,7 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 	sortBy := c.DefaultQuery("sort_by", "created_at")
 	sortOrder := c.DefaultQuery("sort_order", "desc")
 	page := 1
-	pageSize := 0
+	pageSize := 10
 
 	if pageStr := c.Query("page"); pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -313,12 +311,6 @@ func (h *ProjectHandler) RestoreProject(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-
-
-
-
-
-
 // ReinitGitRepository godoc
 // @Summary Reinitialize Git repository for a project
 // @Description Reinitialize and reassign Git repository and GitHub repository URL for a project
@@ -347,8 +339,6 @@ func (h *ProjectHandler) ReinitGitRepository(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.NewSuccessResponse("Git repository reinitialized successfully", nil))
 }
-
-
 
 // ListBranches godoc
 // @Summary List Git branches for a project

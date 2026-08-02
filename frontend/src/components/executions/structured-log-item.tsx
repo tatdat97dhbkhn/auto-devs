@@ -69,8 +69,8 @@ function StructuredLogRenderer({ log }: { log: ExecutionLog }) {
       const filePath = itemInput.file_path
       return (
         <div className='text-xs text-gray-600'>
-          <div className='font-medium'>File Path: {filePath}</div>
-          <div className='font-medium'>Content:</div>
+          <div className='font-medium'>Đường dẫn tệp: {filePath}</div>
+          <div className='font-medium'>Nội dung:</div>
           <div className='text-gray-600'>{content}</div>
         </div>
       )
@@ -160,11 +160,11 @@ function StructuredLogRenderer({ log }: { log: ExecutionLog }) {
         return <div className='text-sm text-blue-700'>{content.content}</div>
       }
       if (typeof content.text === 'string' && content.text.length > 0) {
-        console.log("USE MESSAGE TEXT", content);
+        console.log('USE MESSAGE TEXT', content)
         return <div className='text-sm text-blue-700'>{content.text}</div>
       }
     }
-    console.log("USE MESSAGE CONTENT", content);
+    console.log('USE MESSAGE CONTENT', content)
     return (
       <div className='text-sm text-blue-700'>{JSON.stringify(content)}</div>
     )
@@ -252,7 +252,7 @@ function StructuredLogRenderer({ log }: { log: ExecutionLog }) {
             )
           })
         }
-        return <div className='text-sm text-green-700'>Assistant message</div>
+        return <div className='text-sm text-green-700'>Tin nhắn trợ lý</div>
 
       case 'tool_result':
         return (
@@ -323,9 +323,7 @@ function StructuredLogRenderer({ log }: { log: ExecutionLog }) {
             <span className='text-xs text-gray-400'>
               {new Date(created_at).toLocaleTimeString()}
             </span>
-            <span className='text-xs text-gray-400'>
-              Line: {line}
-            </span>
+            <span className='text-xs text-gray-400'>Line: {line}</span>
           </div>
           <div className='space-y-2'>{formatContent()}</div>
         </div>
@@ -398,7 +396,7 @@ function LegacyLogRenderer({ log }: { log: ExecutionLog }) {
             )
           })
         }
-        return <div className='text-sm text-blue-700'>User message</div>
+        return <div className='text-sm text-blue-700'>Tin nhắn người dùng</div>
       }
 
       if (logData.type === 'assistant') {
@@ -470,7 +468,7 @@ function LegacyLogRenderer({ log }: { log: ExecutionLog }) {
             )
           })
         }
-        return <div className='text-sm text-green-700'>Assistant message</div>
+        return <div className='text-sm text-green-700'>Tin nhắn trợ lý</div>
       }
 
       if (logData.type === 'tool_result') {
@@ -541,17 +539,19 @@ function LegacyLogRenderer({ log }: { log: ExecutionLog }) {
         </div>
       </div>
     )
-  } catch (error) {
-    // Fallback for invalid JSON
+  } catch {
+    // CLI executors such as Codex intentionally emit plain text lines. They
+    // are valid execution logs even though they are not stream-json.
     return (
       <div className='mb-3 border-b border-gray-100 pb-3 last:border-b-0'>
         <div className='flex items-start gap-2'>
-          <AlertCircle className='mt-1 h-4 w-4 text-red-600' />
+          <Terminal className='mt-1 h-4 w-4 text-gray-600' />
           <div className='min-w-0 flex-1'>
-            <div className='mb-1 text-xs font-medium text-red-600'>
-              Invalid log format
+            <div className='mb-1 flex items-center gap-2 text-xs font-medium text-gray-500'>
+              <span>{log.source || 'stdout'}</span>
+              <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
             </div>
-            <div className='rounded bg-gray-50 p-2 font-mono text-sm text-gray-600'>
+            <div className='rounded bg-gray-50 p-2 font-mono text-sm whitespace-pre-wrap text-gray-600'>
               {message}
             </div>
           </div>

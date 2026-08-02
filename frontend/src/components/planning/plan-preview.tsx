@@ -100,7 +100,7 @@ export function PlanPreview({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Implementation Plan</title>
+          <title>Kế hoạch triển khai</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             body { 
@@ -175,7 +175,9 @@ export function PlanPreview({
             />
           </svg>
         </div>
-        <h3 className='mb-2 text-lg font-medium'>No content to preview</h3>
+        <h3 className='mb-2 text-lg font-medium'>
+          Không có nội dung để xem trước
+        </h3>
         <p className='text-sm text-gray-500'>
           Start writing your plan to see a preview here.
         </p>

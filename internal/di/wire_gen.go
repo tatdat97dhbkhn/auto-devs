@@ -57,7 +57,7 @@ func InitializeApp() (*App, error) {
 	worktreeUsecase := ProvideWorktreeUsecase(worktreeRepository, taskRepository, projectRepository, integratedWorktreeService, gitManager, jobClientInterface)
 	gitHubServiceInterface := ProvideGitHubService(configConfig)
 	prCreator := ProvidePRCreator(gitHubServiceInterface, configConfig)
-	taskUsecase := ProvideTaskUsecase(taskRepository, pullRequestRepository, projectRepository, planRepository, notificationUsecase, worktreeUsecase, jobClientInterface, gitManager, prCreator)
+	taskUsecase := ProvideTaskUsecase(taskRepository, pullRequestRepository, projectRepository, planRepository, notificationUsecase, worktreeUsecase, jobClientInterface, executionRepository, gitManager, prCreator)
 	executionUsecase := ProvideExecutionUsecase(executionRepository, executionLogRepository, taskRepository)
 	service := ProvideWebSocketService(configConfig)
 	cliManager, err := ProvideCLIManager()
@@ -72,7 +72,7 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	kanbanClient := ProvideKanbanClient(configConfig)
-	processor := ProvideJobProcessor(taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepository, executionRepository, executionLogRepository, service, gitManager, prCreator, pullRequestRepository, gitHubServiceInterface, kanbanClient)
+	processor := ProvideJobProcessor(configConfig, taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepository, executionRepository, executionLogRepository, service, gitManager, prCreator, pullRequestRepository, gitHubServiceInterface, kanbanClient)
 	app := NewApp(configConfig, gormDB, projectRepository, taskRepository, planRepository, worktreeRepository, auditRepository, executionRepository, executionLogRepository, pullRequestRepository, auditUsecase, projectUsecase, taskUsecase, worktreeUsecase, notificationUsecase, executionUsecase, service, cliManager, processManager, executionService, planningService, gitManager, worktreeManager, prCreator, client, jobClientInterface, processor)
 	return app, nil
 }
@@ -267,10 +267,11 @@ func ProvideTaskUsecase(
 	notificationUsecase usecase.NotificationUsecase,
 	worktreeUsecase usecase.WorktreeUsecase,
 	jobClient usecase.JobClientInterface,
+	executionRepo repository.ExecutionRepository,
 	gitManager *git.GitManager,
 	prCreator *github.PRCreator,
 ) usecase.TaskUsecase {
-	return usecase.NewTaskUsecase(taskRepo, pullRequestRepo, projectRepo, planRepo, notificationUsecase, worktreeUsecase, jobClient, gitManager, prCreator)
+	return usecase.NewTaskUsecase(taskRepo, pullRequestRepo, projectRepo, planRepo, notificationUsecase, worktreeUsecase, jobClient, executionRepo, gitManager, prCreator)
 }
 
 // ProvideCLIManager provides a CLIManager instance
@@ -319,6 +320,7 @@ func ProvideWorktreeManager(cfg *config.Config) (*worktree.WorktreeManager, erro
 
 // ProvideJobProcessor provides a Processor instance
 func ProvideJobProcessor(
+	cfg *config.Config,
 	taskUsecase usecase.TaskUsecase,
 	projectUsecase usecase.ProjectUsecase,
 	worktreeUsecase usecase.WorktreeUsecase,
@@ -334,7 +336,9 @@ func ProvideJobProcessor(
 	githubService github.GitHubServiceInterface,
 	kanbanClient kanban.Client,
 ) *jobs.Processor {
-	return jobs.NewProcessor(taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepo, executionRepo, executionLogRepo, wsService, gitManager, prCreator, prRepo, githubService, kanbanClient)
+	redisAddr := cfg.Redis.Host + ":" + cfg.Redis.Port
+	redisBroker := jobs.NewRedisBrokerClient(redisAddr, cfg.Redis.Password, cfg.Redis.DB)
+	return jobs.NewProcessorWithRedisBroker(taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepo, executionRepo, executionLogRepo, wsService, redisBroker, gitManager, prCreator, prRepo, githubService, kanbanClient)
 }
 
 // ProvideKanbanClient provides a Hermes Kanban client instance

@@ -37,7 +37,6 @@ import {
 import { GitStatusCard } from '@/components/kanban/git-status-card'
 import { ProjectBoard } from '@/components/kanban/project-board'
 import { Main } from '@/components/layout/main'
-import { RealTimeNotifications } from '@/components/notifications/real-time-notifications'
 import { ProjectEditModal } from '@/components/project-edit-modal'
 import { SimpleConfirmDialog } from '@/components/simple-confirm-dialog'
 import {
@@ -46,21 +45,29 @@ import {
 } from '@/components/stats/real-time-project-stats'
 
 const statusConfig = {
-  TODO: { label: 'To Do', icon: Clock, color: 'bg-slate-500' },
-  PLANNING: { label: 'Planning', icon: BarChart3, color: 'bg-blue-500' },
+  TODO: { label: 'Cần làm', icon: Clock, color: 'bg-slate-500' },
+  PLANNING: {
+    label: 'Đang lập kế hoạch',
+    icon: BarChart3,
+    color: 'bg-blue-500',
+  },
   PLAN_REVIEWING: {
-    label: 'Plan Review',
+    label: 'Duyệt kế hoạch',
     icon: AlertCircle,
     color: 'bg-yellow-500',
   },
-  IMPLEMENTING: { label: 'Implementing', icon: Clock, color: 'bg-orange-500' },
+  IMPLEMENTING: {
+    label: 'Đang triển khai',
+    icon: Clock,
+    color: 'bg-orange-500',
+  },
   CODE_REVIEWING: {
-    label: 'Code Review',
+    label: 'Duyệt mã nguồn',
     icon: AlertCircle,
     color: 'bg-purple-500',
   },
-  DONE: { label: 'Done', icon: CheckCircle2, color: 'bg-green-500' },
-  CANCELLED: { label: 'Cancelled', icon: XCircle, color: 'bg-red-500' },
+  DONE: { label: 'Hoàn thành', icon: CheckCircle2, color: 'bg-green-500' },
+  CANCELLED: { label: 'Đã huỷ', icon: XCircle, color: 'bg-red-500' },
 }
 
 export function ProjectDetail() {
@@ -91,7 +98,7 @@ export function ProjectDetail() {
     return (
       <div className='flex h-full items-center justify-center'>
         <div className='text-center'>
-          <h3 className='text-lg font-semibold'>Error loading project</h3>
+          <h3 className='text-lg font-semibold'>Không thể tải dự án</h3>
           <p className='text-muted-foreground mb-4'>
             {projectError instanceof Error
               ? projectError.message
@@ -100,7 +107,7 @@ export function ProjectDetail() {
           <Link to='/projects'>
             <Button variant='outline'>
               <ArrowLeft className='mr-2 h-4 w-4' />
-              Back to Projects
+              Về danh sách dự án
             </Button>
           </Link>
         </div>
@@ -116,14 +123,14 @@ export function ProjectDetail() {
     return (
       <div className='flex h-full items-center justify-center'>
         <div className='text-center'>
-          <h3 className='text-lg font-semibold'>Project not found</h3>
+          <h3 className='text-lg font-semibold'>Không tìm thấy dự án</h3>
           <p className='text-muted-foreground mb-4'>
-            The project you're looking for doesn't exist or has been deleted.
+            Dự án bạn đang tìm kiếm không tồn tại hoặc đã bị xoá.
           </p>
           <Link to='/projects'>
             <Button variant='outline'>
               <ArrowLeft className='mr-2 h-4 w-4' />
-              Back to Projects
+              Về danh sách dự án
             </Button>
           </Link>
         </div>
@@ -135,13 +142,6 @@ export function ProjectDetail() {
 
   return (
     <>
-      {/* Real-time notifications */}
-      <RealTimeNotifications
-        projectId={projectId}
-        enableToastNotifications={true}
-        enableBrowserNotifications={false}
-        enableSound={false}
-      />
       {/* ===== Top Heading ===== */}
       <Main>
         <div className='flex items-center justify-between'>
@@ -161,7 +161,7 @@ export function ProjectDetail() {
                 />
               </div>
               <p className='text-muted-foreground'>
-                {project.description || 'No description provided'}
+                {project.description || 'Chưa có mô tả'}
               </p>
             </div>
           </div>
@@ -169,19 +169,19 @@ export function ProjectDetail() {
             <UserPresenceCompact projectId={projectId} />
             <Button variant='outline' onClick={() => setEditModalOpen(true)}>
               <Settings className='mr-2 h-4 w-4' />
-              Settings
+              Cài đặt
             </Button>
             <SimpleConfirmDialog
-              title='Delete Project'
-              description={`Are you sure you want to delete "${project?.name}"? This action cannot be undone. The project will be moved to the trash and can be restored later.`}
+              title='Xoá dự án'
+              description={`Bạn có chắc muốn xoá "${project?.name}"? Thao tác này không thể hoàn tác. Dự án sẽ được chuyển vào thùng rác và có thể khôi phục sau.`}
               onConfirm={handleDeleteProject}
               destructive={true}
-              confirmText='Delete Project'
-              cancelText='Cancel'
+              confirmText='Xoá dự án'
+              cancelText='Huỷ'
             >
               <Button variant='destructive'>
                 <Trash2 className='mr-2 h-4 w-4' />
-                Delete
+                Xoá
               </Button>
             </SimpleConfirmDialog>
           </div>
@@ -192,8 +192,8 @@ export function ProjectDetail() {
 
           <Tabs defaultValue='tasks' className='h-full'>
             {/* <TabsList>
-              <TabsTrigger value='overview'>Overview</TabsTrigger>
-              <TabsTrigger value='tasks'>Tasks</TabsTrigger>
+              <TabsTrigger value='overview'>Tổng quan</TabsTrigger>
+              <TabsTrigger value='tasks'>Công việc</TabsTrigger>
             </TabsList> */}
 
             <TabsContent value='overview' className='space-y-6'>
@@ -208,7 +208,7 @@ export function ProjectDetail() {
               <div className='grid gap-6 md:grid-cols-2'>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Project Information</CardTitle>
+                    <CardTitle>Thông tin dự án</CardTitle>
                   </CardHeader>
                   <CardContent className='space-y-4'>
                     {project.repository_url && (
@@ -225,7 +225,7 @@ export function ProjectDetail() {
 
                     <div className='flex items-center gap-2 text-sm'>
                       <Calendar className='text-muted-foreground h-4 w-4' />
-                      <span className='text-muted-foreground'>Created:</span>
+                      <span className='text-muted-foreground'>Đã tạo:</span>
                       <span>
                         {formatDistanceToNow(new Date(project.created_at), {
                           addSuffix: true,
@@ -234,7 +234,9 @@ export function ProjectDetail() {
                     </div>
                     <div className='flex items-center gap-2 text-sm'>
                       <Calendar className='text-muted-foreground h-4 w-4' />
-                      <span className='text-muted-foreground'>Updated:</span>
+                      <span className='text-muted-foreground'>
+                        Đã cập nhật:
+                      </span>
                       <span>
                         {formatDistanceToNow(new Date(project.updated_at), {
                           addSuffix: true,
@@ -249,9 +251,9 @@ export function ProjectDetail() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Real-time Activity</CardTitle>
+                    <CardTitle>Hoạt động theo thời gian thực</CardTitle>
                     <CardDescription>
-                      Live project activity and collaboration
+                      Hoạt động và cộng tác trực tiếp của dự án
                     </CardDescription>
                   </CardHeader>
                   <CardContent className='space-y-4'>
@@ -272,9 +274,9 @@ export function ProjectDetail() {
               {!tasks.length && statistics && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Task Distribution</CardTitle>
+                    <CardTitle>Phân bổ công việc</CardTitle>
                     <CardDescription>
-                      Overview of tasks by status
+                      Tổng quan công việc theo trạng thái
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

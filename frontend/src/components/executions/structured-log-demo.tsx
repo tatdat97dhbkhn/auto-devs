@@ -1,5 +1,5 @@
-import { StructuredLogItem } from './structured-log-item'
 import { ExecutionLog } from '@/types/execution'
+import { StructuredLogItem } from './structured-log-item'
 
 // Demo component to test structured logs
 export function StructuredLogDemo() {
@@ -27,8 +27,8 @@ export function StructuredLogDemo() {
       // New structured fields
       log_type: 'user',
       parsed_content: {
-        text: 'Please help me implement a feature'
-      }
+        text: 'Please help me implement a feature',
+      },
     },
     {
       id: '3',
@@ -44,15 +44,15 @@ export function StructuredLogDemo() {
         content: [
           {
             type: 'text',
-            text: 'I\'ll help you implement that feature. Let me start by analyzing the requirements.'
+            text: "I'll help you implement that feature. Let me start by analyzing the requirements.",
           },
           {
             type: 'tool_use',
             name: 'FileReader',
-            input: { file_path: '/src/main.ts' }
-          }
-        ]
-      }
+            input: { file_path: '/src/main.ts' },
+          },
+        ],
+      },
     },
     {
       id: '4',
@@ -67,8 +67,9 @@ export function StructuredLogDemo() {
       tool_name: 'FileReader',
       tool_use_id: 'tool-123',
       parsed_content: {
-        content: 'File content: export function main() { console.log("Hello World"); }'
-      }
+        content:
+          'File content: export function main() { console.log("Hello World"); }',
+      },
     },
     {
       id: '5',
@@ -84,8 +85,8 @@ export function StructuredLogDemo() {
       num_turns: 3,
       is_error: false,
       parsed_content: {
-        result: 'Feature implemented successfully'
-      }
+        result: 'Feature implemented successfully',
+      },
     },
     {
       id: '6',
@@ -101,19 +102,19 @@ export function StructuredLogDemo() {
       num_turns: 1,
       is_error: true,
       parsed_content: {
-        error: 'Claude AI usage limit reached|1755338400'
-      }
-    }
+        error: 'Claude AI usage limit reached|1755338400',
+      },
+    },
   ]
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">Structured Log Demo</h2>
-      <p className="text-sm text-gray-600">
+    <div className='space-y-4 p-4'>
+      <h2 className='text-xl font-bold'>Bản demo nhật ký có cấu trúc</h2>
+      <p className='text-sm text-gray-600'>
         This demo shows how structured logs are rendered with the new fields.
       </p>
-      
-      <div className="space-y-2">
+
+      <div className='space-y-2'>
         {demoLogs.map((log) => (
           <StructuredLogItem key={log.id} log={log} />
         ))}

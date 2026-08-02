@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { handleServerError } from '@/utils/handle-server-error'
 import { FontProvider } from './context/font-context'
 import { ThemeProvider } from './context/theme-context'
+import './i18n'
 import './index.css'
 // Generated Routes
 import { routeTree } from './routeTree.gen'
@@ -38,7 +39,7 @@ const queryClient = new QueryClient({
 
         if (error instanceof AxiosError) {
           if (error.response?.status === 304) {
-            toast.error('Content not modified!')
+            toast.error('Nội dung không thay đổi!')
           }
         }
       },
@@ -48,7 +49,7 @@ const queryClient = new QueryClient({
     onError: (error) => {
       if (error instanceof AxiosError) {
         if (error.response?.status === 500) {
-          toast.error('Internal Server Error!')
+          toast.error('Lỗi máy chủ nội bộ!')
           router.navigate({ to: '/500' })
         }
         if (error.response?.status === 403) {

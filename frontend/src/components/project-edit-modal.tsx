@@ -33,16 +33,13 @@ import { SimpleConfirmDialog } from '@/components/simple-confirm-dialog'
 const updateProjectSchema = z.object({
   name: z
     .string()
-    .min(1, 'Project name is required')
-    .max(100, 'Project name must be less than 100 characters'),
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .optional(),
+    .min(1, 'Tên dự án là bắt buộc')
+    .max(100, 'Tên dự án phải dưới 100 ký tự'),
+  description: z.string().max(500, 'Mô tả phải dưới 500 ký tự').optional(),
   worktree_base_path: z.string().optional(),
   init_workspace_script: z
     .string()
-    .max(2000, 'Init script must be less than 2000 characters')
+    .max(2000, 'Tập lệnh khởi tạo phải dưới 2.000 ký tự')
     .optional(),
 })
 
@@ -133,10 +130,10 @@ export function ProjectEditModal({
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
             <Settings className='h-5 w-5' />
-            Edit Project
+            Chỉnh sửa dự án
           </DialogTitle>
           <DialogDescription>
-            Update project settings and configuration
+            Cập nhật cài đặt và cấu hình dự án
           </DialogDescription>
         </DialogHeader>
 
@@ -147,13 +144,11 @@ export function ProjectEditModal({
               name='name'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name</FormLabel>
+                  <FormLabel>Tên dự án</FormLabel>
                   <FormControl>
-                    <Input placeholder='My Awesome Project' {...field} />
+                    <Input placeholder='Tên dự án của tôi' {...field} />
                   </FormControl>
-                  <FormDescription>
-                    A descriptive name for your project
-                  </FormDescription>
+                  <FormDescription>Tên mô tả cho dự án của bạn</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -164,17 +159,17 @@ export function ProjectEditModal({
               name='description'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Mô tả</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='Brief description of what this project does...'
+                      placeholder='Mô tả ngắn gọn dự án này làm gì...'
                       className='resize-none'
                       rows={3}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Optional description to help identify this project
+                    Mô tả tuỳ chọn giúp nhận diện dự án
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -186,12 +181,12 @@ export function ProjectEditModal({
               name='worktree_base_path'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Worktree Base Path</FormLabel>
+                  <FormLabel>Đường dẫn gốc Worktree</FormLabel>
                   <FormControl>
                     <Input placeholder='/tmp/projects/repo' {...field} />
                   </FormControl>
                   <FormDescription>
-                    Base path for Git worktree operations
+                    Đường dẫn gốc cho các thao tác Git Worktree
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -203,7 +198,7 @@ export function ProjectEditModal({
               name='init_workspace_script'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Init Workspace Script</FormLabel>
+                  <FormLabel>Tập lệnh khởi tạo workspace</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder='npm install && npm run build'
@@ -213,8 +208,8 @@ export function ProjectEditModal({
                     />
                   </FormControl>
                   <FormDescription>
-                    Optional bash script to run after creating worktree (e.g.,
-                    install dependencies)
+                    Tập lệnh bash tuỳ chọn chạy sau khi tạo Worktree (ví dụ: cài
+                    dependency)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -223,12 +218,12 @@ export function ProjectEditModal({
 
             <div className='flex items-center justify-between pt-4'>
               <SimpleConfirmDialog
-                title='Delete Project'
-                description='Are you sure you want to delete this project? This action cannot be undone.'
+                title='Xoá dự án'
+                description='Bạn có chắc muốn xoá dự án này? Thao tác này không thể hoàn tác.'
                 onConfirm={handleDelete}
                 destructive={true}
-                confirmText='Delete Project'
-                cancelText='Cancel'
+                confirmText='Xoá dự án'
+                cancelText='Huỷ'
               >
                 <Button
                   type='button'
@@ -236,11 +231,11 @@ export function ProjectEditModal({
                   disabled={deleteProject.isPending}
                 >
                   {deleteProject.isPending ? (
-                    'Deleting...'
+                    'Đang xoá...'
                   ) : (
                     <>
                       <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
+                      Xoá
                     </>
                   )}
                 </Button>
@@ -248,10 +243,10 @@ export function ProjectEditModal({
 
               <div className='flex gap-3'>
                 <Button type='button' variant='outline' onClick={handleClose}>
-                  Cancel
+                  Huỷ
                 </Button>
                 <Button type='submit' disabled={updateProject.isPending}>
-                  {updateProject.isPending ? 'Saving...' : 'Save Changes'}
+                  {updateProject.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
                 </Button>
               </div>
             </div>

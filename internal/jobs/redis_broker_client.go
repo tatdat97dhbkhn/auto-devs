@@ -73,6 +73,23 @@ func (c *RedisBrokerClient) PublishMessage(message *BrokerMessage) error {
 	return nil
 }
 
+// PublishWebSocketMessage publishes an arbitrary WebSocket event for the API
+// process to fan out to Centrifuge project subscribers.
+func (c *RedisBrokerClient) PublishWebSocketMessage(messageType string, data interface{}, projectID uuid.UUID) error {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal websocket event: %w", err)
+	}
+	return c.PublishMessage(&BrokerMessage{
+		Type:      messageType,
+		Data:      dataBytes,
+		ProjectID: &projectID,
+		Timestamp: time.Now(),
+		MessageID: uuid.New().String(),
+		Source:    "worker",
+	})
+}
+
 // PublishTaskUpdated publishes a task updated message
 func (c *RedisBrokerClient) PublishTaskUpdated(taskID, projectID uuid.UUID, changes map[string]interface{}, task interface{}) error {
 	data := map[string]interface{}{
