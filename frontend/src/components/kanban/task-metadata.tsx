@@ -41,7 +41,7 @@ export function TaskMetadata({
       {showTimestamps && (
         <div className='grid grid-cols-2 gap-4'>
           <div>
-            <h4 className='mb-2 text-sm font-medium text-gray-700'>Created</h4>
+            <h4 className='mb-2 text-sm font-medium text-gray-700'>Đã tạo</h4>
             <div className='flex items-center gap-2 text-sm text-gray-600'>
               <Calendar className='h-4 w-4' />
               <span>{createdAgo}</span>
@@ -94,7 +94,7 @@ export function TaskMetadata({
               {/* Git Status */}
               {task.git_info && (
                 <div className='flex items-center gap-2'>
-                  <span className='text-sm text-gray-500'>Status:</span>
+                  <span className='text-sm text-gray-500'>Trạng thái:</span>
                   <GitStatusBadge
                     status={task.git_info.status}
                     branchName={task.git_info.branch_name}
@@ -134,7 +134,7 @@ export function TaskMetadata({
                       )
                     }}
                     className='h-6 w-6 p-0'
-                    title='Open in file manager'
+                    title='Mở trong trình quản lý tệp'
                   >
                     <FolderOpen className='h-3 w-3' />
                   </Button>
@@ -170,7 +170,7 @@ export function TaskMetadata({
             <div className='space-y-2'>
               <div className='flex items-center gap-2 text-sm'>
                 <Activity className='h-4 w-4 text-gray-500' />
-                <span>Current Status:</span>
+                <span>Trạng thái hiện tại:</span>
                 <Badge
                   className={getStatusColor(task.status)}
                   variant='outline'
@@ -194,9 +194,7 @@ export function TaskMetadata({
           <div>
             <div className='mb-3 flex items-center gap-2'>
               <AlertTriangle className='h-4 w-4 text-red-500' />
-              <h4 className='text-sm font-medium text-gray-700'>
-                Error Logs
-              </h4>
+              <h4 className='text-sm font-medium text-gray-700'>Nhật ký lỗi</h4>
               <span className='rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600'>
                 {task.error_logs.length}
               </span>
@@ -206,7 +204,7 @@ export function TaskMetadata({
                 {task.error_logs.map((log, index) => (
                   <p
                     key={index}
-                    className='break-all font-mono text-xs text-red-700'
+                    className='font-mono text-xs break-all text-red-700'
                   >
                     {log}
                   </p>

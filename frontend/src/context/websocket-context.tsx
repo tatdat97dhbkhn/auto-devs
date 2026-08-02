@@ -181,16 +181,18 @@ export function WebSocketProvider({
 
       // Call specific event handlers based on message type
       switch (message.type) {
-        case 'task_created':
+        case 'task_created': {
+          const createdTask = message.data?.task ?? message.data
           // Store initial status for new tasks
-          if (message.data?.id && message.data?.status) {
+          if (createdTask?.id && createdTask?.status) {
             previousTaskStatusesRef.current.set(
-              message.data.id,
-              message.data.status
+              createdTask.id,
+              createdTask.status
             )
           }
-          onTaskCreated?.(message.data)
+          onTaskCreated?.(createdTask)
           break
+        }
         case 'task_updated':
           // Check for optimistic update confirmation
           confirmOptimisticPendingUpdates('task', message.data.task.id)

@@ -66,9 +66,9 @@ export function PlanEditor({
         await onSave(content, true)
         setLastAutoSave(new Date())
         setIsDirty(false)
-        toast.success('Auto-saved', { duration: 1000 })
+        toast.success('Đã tự động lưu', { duration: 1000 })
       } catch (error) {
-        toast.error('Auto-save failed')
+        toast.error('Tự động lưu thất bại')
       } finally {
         setIsSaving(false)
       }
@@ -127,9 +127,9 @@ export function PlanEditor({
       setIsSaving(true)
       await onSave(content, false)
       setIsDirty(false)
-      toast.success('Plan saved successfully!')
+      toast.success('Đã lưu kế hoạch thành công!')
     } catch (error) {
-      toast.error('Failed to save plan')
+      toast.error('Không thể lưu kế hoạch')
     } finally {
       setIsSaving(false)
     }
@@ -145,7 +145,7 @@ export function PlanEditor({
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast.success('Plan exported as Markdown!')
+    toast.success('Đã xuất kế hoạch dưới dạng Markdown!')
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -176,128 +176,126 @@ export function PlanEditor({
   const showSaveButton = isDirty && !autoSaveEnabled
 
   return (
-    <div className='flex h-full w-full flex-col' onKeyDown={handleKeyDown}>
+    <div
+      className='flex h-full min-h-0 w-full flex-col overflow-hidden'
+      onKeyDown={handleKeyDown}
+    >
       {/* Editor Header */}
-      <CardHeader className='pb-3'>
-        <div className='flex items-center justify-between'>
-          <div className='flex items-center gap-3'>
-            <CardTitle className='text-lg'>Edit Plan</CardTitle>
-            {isDirty && (
-              <Badge
-                variant='outline'
-                className='border-orange-200 text-orange-600'
-              >
-                Unsaved Changes
-              </Badge>
-            )}
-            {isSaving && (
-              <Badge
-                variant='outline'
-                className='border-blue-200 text-blue-600'
-              >
-                Saving...
-              </Badge>
-            )}
+      <CardHeader className='px-4 pt-5 pb-4 sm:px-6'>
+        <div className='flex flex-wrap items-center justify-start gap-3 sm:gap-4'>
+          {/* Auto-save toggle */}
+          <div className='flex items-center gap-2'>
+            <Switch
+              id='auto-save'
+              checked={autoSaveEnabled}
+              onCheckedChange={setAutoSaveEnabled}
+              disabled={isLoading}
+            />
+            <Label htmlFor='auto-save' className='text-sm'>
+              Tự động lưu
+            </Label>
           </div>
 
-          <div className='flex items-center gap-4'>
-            {/* Auto-save toggle */}
-            <div className='flex items-center space-x-2'>
-              <Switch
-                id='auto-save'
-                checked={autoSaveEnabled}
-                onCheckedChange={setAutoSaveEnabled}
-                disabled={isLoading}
-              />
-              <Label htmlFor='auto-save' className='text-sm'>
-                Auto-save
-              </Label>
-            </div>
-
-            {/* History controls */}
-            <div className='flex items-center gap-1'>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={handleUndo}
-                disabled={!canUndo || isLoading}
-                title='Undo (Ctrl+Z)'
-              >
-                <Undo className='h-4 w-4' />
-              </Button>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={handleRedo}
-                disabled={!canRedo || isLoading}
-                title='Redo (Ctrl+Y)'
-              >
-                <Redo className='h-4 w-4' />
-              </Button>
-            </div>
-
-            {/* Export */}
+          {/* History controls */}
+          <div className='flex items-center gap-1'>
             <Button
               variant='ghost'
               size='sm'
-              onClick={handleExportMarkdown}
-              disabled={isLoading}
+              onClick={handleUndo}
+              disabled={!canUndo || isLoading}
+              title='Hoàn tác (Ctrl+Z)'
             >
-              <Download className='mr-2 h-4 w-4' />
-              Export
+              <Undo className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={handleRedo}
+              disabled={!canRedo || isLoading}
+              title='Làm lại (Ctrl+Y)'
+            >
+              <Redo className='h-4 w-4' />
             </Button>
           </div>
+
+          {/* Export */}
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={handleExportMarkdown}
+            disabled={isLoading}
+          >
+            <Download className='mr-2 h-4 w-4' />
+            Xuất
+          </Button>
+        </div>
+
+        <div className='mt-4 flex min-w-0 flex-wrap items-center gap-3'>
+          <CardTitle className='text-lg'>Nội dung kế hoạch</CardTitle>
+          {isDirty && (
+            <Badge
+              variant='outline'
+              className='border-orange-200 text-orange-600'
+            >
+              Chưa lưu thay đổi
+            </Badge>
+          )}
+          {isSaving && (
+            <Badge variant='outline' className='border-blue-200 text-blue-600'>
+              Đang lưu...
+            </Badge>
+          )}
         </div>
 
         {/* Status line */}
-        <div className='flex items-center justify-between text-sm text-gray-500'>
-          <div className='flex items-center gap-4'>
-            <span>{content.length} characters</span>
-            <span>{content.split('\n').length} lines</span>
-            <span>{content.split(/\s+/).filter(Boolean).length} words</span>
+        <div className='flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500'>
+          <div className='flex flex-wrap items-center gap-x-4 gap-y-1'>
+            <span>{content.length} ký tự</span>
+            <span>{content.split('\n').length} dòng</span>
+            <span>{content.split(/\s+/).filter(Boolean).length} từ</span>
           </div>
           {lastAutoSave && autoSaveEnabled && (
-            <span>Auto-saved at {lastAutoSave.toLocaleTimeString()}</span>
+            <span>Đã tự động lưu lúc {lastAutoSave.toLocaleTimeString()}</span>
           )}
         </div>
       </CardHeader>
 
       {/* Editor Tabs */}
-      <CardContent className='flex-1 p-0'>
+      <CardContent className='min-h-0 flex-1 p-0'>
         <Tabs
           value={activeTab}
           onValueChange={(value: any) => setActiveTab(value)}
-          className='flex h-full flex-col'
+          className='flex h-full min-h-0 flex-col'
         >
-          <TabsList className='mx-6 grid w-48 grid-cols-2'>
+          <TabsList className='mx-4 grid w-[calc(100%-2rem)] max-w-none grid-cols-2 sm:mx-6 sm:w-[calc(100%-3rem)]'>
             <TabsTrigger value='editor' className='flex items-center gap-2'>
               <FileText className='h-4 w-4' />
-              Editor
+              Soạn thảo
             </TabsTrigger>
             <TabsTrigger value='preview' className='flex items-center gap-2'>
               <Eye className='h-4 w-4' />
-              Preview
+              Xem trước
             </TabsTrigger>
           </TabsList>
 
           <TabsContent
             value='editor'
-            className='flex-1 overflow-hidden px-6 pb-6'
+            className='min-h-0 flex-1 overflow-hidden px-4 pb-5 sm:px-6 sm:pb-6'
           >
             <Textarea
               value={content}
               onChange={(e) => handleContentChange(e.target.value)}
-              placeholder='Enter your implementation plan in Markdown format...'
-              className='h-full w-full resize-none overflow-auto font-mono text-sm'
+              placeholder='Nhập kế hoạch triển khai ở định dạng Markdown...'
+              className='h-full min-h-[22rem] w-full resize-none overflow-auto p-4 font-mono text-sm leading-6'
               disabled={isLoading}
             />
           </TabsContent>
 
           <TabsContent
             value='preview'
-            className='flex-1 overflow-hidden px-6 pb-6'
+            className='min-h-0 flex-1 overflow-hidden px-4 pb-5 sm:px-6 sm:pb-6'
           >
-            <div className='h-full overflow-auto rounded-md border'>
+            <div className='h-full overflow-auto rounded-md border p-6 sm:p-8'>
               <PlanPreview content={content} />
             </div>
           </TabsContent>
@@ -305,20 +303,20 @@ export function PlanEditor({
       </CardContent>
 
       {/* Editor Footer */}
-      <CardFooter className='flex justify-between pt-4'>
-        <div className='text-sm text-gray-500'>
+      <CardFooter className='flex flex-col items-stretch gap-4 px-4 pt-4 pb-5 sm:flex-row sm:items-center sm:justify-between sm:px-6'>
+        <div className='text-sm leading-6 text-gray-500'>
           {autoSaveEnabled
-            ? 'Changes are automatically saved'
-            : 'Manual save mode - remember to save your changes'}
+            ? 'Thay đổi được tự động lưu'
+            : 'Chế độ lưu thủ công - hãy nhớ lưu thay đổi'}
         </div>
 
-        <div className='flex items-center gap-3'>
+        <div className='flex items-center justify-end gap-3'>
           <Button
             variant='outline'
             onClick={onCancel}
             disabled={isLoading || isSaving}
           >
-            Cancel
+            Huỷ
           </Button>
 
           {showSaveButton && (
@@ -328,7 +326,7 @@ export function PlanEditor({
               className='flex items-center gap-2'
             >
               <Save className='h-4 w-4' />
-              Save Changes
+              Lưu thay đổi
             </Button>
           )}
         </div>

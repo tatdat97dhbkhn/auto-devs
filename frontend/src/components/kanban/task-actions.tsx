@@ -1,22 +1,64 @@
 import { useState } from 'react'
 import type { Task, TaskStatus } from '@/types/task'
-import { Edit, Trash2, Copy, Play, ArrowUpDown, FolderOpen, Zap, GitBranch } from 'lucide-react'
+import {
+  Edit,
+  Trash2,
+  Copy,
+  Play,
+  ArrowUpDown,
+  FolderOpen,
+  Zap,
+  GitBranch,
+} from 'lucide-react'
 import { tasksApi } from '@/lib/api/tasks'
 import { Button } from '@/components/ui/button'
 import { BranchSelectionDialog } from './branch-selection-dialog'
 import { ChangeStatusDialog } from './change-status-dialog'
 import { ImplementationConfirmationDialog } from './implementation-confirmation-dialog'
+import { useTaskExecutions } from '@/hooks/use-executions'
 
 interface TaskActionsProps {
   task: Task
   onEdit?: (task: Task) => void
   onDelete?: (taskId: string) => void
   onDuplicate?: (task: Task) => void
-  onStartPlanning?: (taskId: string, branchName: string, aiType: string, autoImplement: boolean, useRemoteBranch: boolean) => void
-  onApprovePlanAndStartImplement?: (taskId: string, aiType: string) => void
+  onStartPlanning?: (
+    taskId: string,
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    autoImplement: boolean,
+    useRemoteBranch: boolean
+  ) => void
+  onApprovePlanAndStartImplement?: (
+    taskId: string,
+    planId: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string
+  ) => void
+  selectedPlanId?: string
+  selectedPlanInfo?: {
+    version: number
+    status: string
+    createdAt: string
+    revisionFeedback?: string
+  }
   onChangeStatus?: (taskId: string, newStatus: TaskStatus) => Promise<void>
-  onImplementDirect?: (taskId: string, branchName: string, aiType: string, useRemoteBranch: boolean) => void
-  onCreateWorktree?: (taskId: string, branchName: string, useRemoteBranch: boolean) => void
+  onImplementDirect?: (
+    taskId: string,
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    useRemoteBranch: boolean
+  ) => void
+  onCreateWorktree?: (
+    taskId: string,
+    branchName: string,
+    useRemoteBranch: boolean
+  ) => void
 }
 
 export function TaskActions({
@@ -26,20 +68,33 @@ export function TaskActions({
   onDuplicate,
   onStartPlanning,
   onApprovePlanAndStartImplement,
+  selectedPlanId,
+  selectedPlanInfo,
   onChangeStatus,
   onImplementDirect,
   onCreateWorktree,
 }: TaskActionsProps) {
   const [showBranchDialog, setShowBranchDialog] = useState(false)
-  const [showDirectImplementDialog, setShowDirectImplementDialog] = useState(false)
-  const [showImplementationDialog, setShowImplementationDialog] = useState(false)
+  const [showDirectImplementDialog, setShowDirectImplementDialog] =
+    useState(false)
+  const [showImplementationDialog, setShowImplementationDialog] =
+    useState(false)
   const [showChangeStatusDialog, setShowChangeStatusDialog] = useState(false)
-  const [showCreateWorktreeDialog, setShowCreateWorktreeDialog] = useState(false)
-  const [showPlanningWithWorktreeDialog, setShowPlanningWithWorktreeDialog] = useState(false)
-  const [showImplementWithWorktreeDialog, setShowImplementWithWorktreeDialog] = useState(false)
+  const [showCreateWorktreeDialog, setShowCreateWorktreeDialog] =
+    useState(false)
+  const [showPlanningWithWorktreeDialog, setShowPlanningWithWorktreeDialog] =
+    useState(false)
+  const [showImplementWithWorktreeDialog, setShowImplementWithWorktreeDialog] =
+    useState(false)
   const [isOpeningCursor, setIsOpeningCursor] = useState(false)
 
   const hasWorktree = !!task.worktree_path
+  const { data: executionsData } = useTaskExecutions(task.id)
+  const isRevisionInProgress = (executionsData?.data ?? []).some(
+    (execution) =>
+      execution.execution_type === 'PLAN_REVISION' &&
+      (execution.status === 'PENDING' || execution.status === 'RUNNING')
+  )
 
   const handleDelete = () => {
     onDelete?.(task.id)
@@ -61,33 +116,98 @@ export function TaskActions({
     }
   }
 
-  const handleBranchSelected = (branchName: string, aiType: string, autoImplement: boolean, useRemoteBranch: boolean) => {
-    onStartPlanning?.(task.id, branchName, aiType, autoImplement, useRemoteBranch)
+  const handleBranchSelected = (
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    autoImplement: boolean,
+    useRemoteBranch: boolean
+  ) => {
+    onStartPlanning?.(
+      task.id,
+      branchName,
+      aiType,
+      model,
+      reasoningEffort,
+      autoImplement,
+      useRemoteBranch
+    )
   }
 
-  const handleDirectImplementBranchSelected = (branchName: string, aiType: string, _autoImplement: boolean, useRemoteBranch: boolean) => {
-    onImplementDirect?.(task.id, branchName, aiType, useRemoteBranch)
+  const handleDirectImplementBranchSelected = (
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    _autoImplement: boolean,
+    useRemoteBranch: boolean
+  ) => {
+    onImplementDirect?.(
+      task.id,
+      branchName,
+      aiType,
+      model,
+      reasoningEffort,
+      useRemoteBranch
+    )
   }
 
-  const handleCreateWorktreeBranchSelected = (branchName: string, _aiType: string, _autoImplement: boolean, useRemoteBranch: boolean) => {
+  const handleCreateWorktreeBranchSelected = (
+    branchName: string,
+    _aiType: string,
+    _model: string,
+    _reasoningEffort: string,
+    _autoImplement: boolean,
+    useRemoteBranch: boolean
+  ) => {
     onCreateWorktree?.(task.id, branchName, useRemoteBranch)
   }
 
-  const handlePlanningWithWorktreeConfirm = (aiType: string, autoImplement?: boolean) => {
+  const handlePlanningWithWorktreeConfirm = (
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    autoImplement?: boolean
+  ) => {
     // Pass base branch (not worktree branch) so backend does not overwrite BaseBranchName
-    onStartPlanning?.(task.id, task.base_branch_name || '', aiType, autoImplement ?? false, false)
+    onStartPlanning?.(
+      task.id,
+      task.base_branch_name || '',
+      aiType,
+      model,
+      reasoningEffort,
+      autoImplement ?? false,
+      false
+    )
   }
 
-  const handleImplementWithWorktreeConfirm = (aiType: string) => {
-    onImplementDirect?.(task.id, task.base_branch_name || '', aiType, false)
+  const handleImplementWithWorktreeConfirm = (
+    aiType: string,
+    model: string,
+    reasoningEffort: string
+  ) => {
+    onImplementDirect?.(
+      task.id,
+      task.base_branch_name || '',
+      aiType,
+      model,
+      reasoningEffort,
+      false
+    )
   }
 
   const handleApprovePlanAndStartImplement = () => {
+    if (isRevisionInProgress) return
     setShowImplementationDialog(true)
   }
 
-  const handleImplementationConfirm = (aiType: string) => {
-    onApprovePlanAndStartImplement?.(task.id, aiType)
+  const handleImplementationConfirm = (
+    aiType: string,
+    model: string,
+    reasoningEffort: string
+  ) => {
+    if (selectedPlanId) onApprovePlanAndStartImplement?.(task.id, selectedPlanId, aiType, model, reasoningEffort)
   }
 
   const handleChangeStatus = async (newStatus: TaskStatus) => {
@@ -118,7 +238,7 @@ export function TaskActions({
             variant='default'
             size='sm'
             onClick={() => setShowCreateWorktreeDialog(true)}
-            title='Create a worktree for this task'
+            title='Tạo Worktree cho công việc này'
             className='bg-purple-600 text-white hover:bg-purple-700'
           >
             <GitBranch className='mr-1 h-4 w-4' />
@@ -132,7 +252,7 @@ export function TaskActions({
             variant='default'
             size='sm'
             onClick={handleStartPlanning}
-            title='Start planning for this task'
+            title='Bắt đầu lập kế hoạch cho công việc này'
             className='bg-blue-600 text-white hover:bg-blue-700'
           >
             <Play className='mr-1 h-4 w-4' />
@@ -146,7 +266,7 @@ export function TaskActions({
             variant='default'
             size='sm'
             onClick={handleDirectImplement}
-            title='Skip planning and implement directly'
+            title='Bỏ qua lập kế hoạch và triển khai trực tiếp'
             className='bg-orange-600 text-white hover:bg-orange-700'
           >
             <Zap className='mr-1 h-4 w-4' />
@@ -160,11 +280,14 @@ export function TaskActions({
             variant='default'
             size='sm'
             onClick={handleApprovePlanAndStartImplement}
-            title='Approve plan and start implementing'
+            disabled={!selectedPlanId || isRevisionInProgress}
+            title='Duyệt kế hoạch và bắt đầu triển khai'
             className='bg-green-600 text-white hover:bg-green-700'
           >
             <Play className='mr-1 h-4 w-4' />
-            Approve Plan and Start Implement
+            {isRevisionInProgress
+              ? 'Đang tạo kế hoạch...'
+              : 'Approve Plan and Start Implement'}
           </Button>
         )}
 
@@ -175,7 +298,7 @@ export function TaskActions({
             size='sm'
             onClick={handleOpenWithCursor}
             disabled={isOpeningCursor}
-            title='Open task workspace with Cursor'
+            title='Mở workspace công việc bằng Cursor'
           >
             <FolderOpen className='mr-1 h-4 w-4' />
             {isOpeningCursor ? 'Opening...' : 'Open With Cursor'}
@@ -193,7 +316,7 @@ export function TaskActions({
             variant='outline'
             size='sm'
             onClick={() => setShowChangeStatusDialog(true)}
-            title='Change task status'
+            title='Thay đổi trạng thái công việc'
           >
             <ArrowUpDown className='h-4 w-4' /> Change Status
           </Button>
@@ -264,6 +387,7 @@ export function TaskActions({
         open={showImplementationDialog}
         onOpenChange={setShowImplementationDialog}
         taskTitle={task.title}
+        selectedPlanInfo={selectedPlanInfo}
         onConfirm={handleImplementationConfirm}
       />
 

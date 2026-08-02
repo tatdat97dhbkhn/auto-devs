@@ -120,10 +120,9 @@ export function ChangeStatusDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-[425px]'>
         <DialogHeader>
-          <DialogTitle>Change Task Status</DialogTitle>
+          <DialogTitle>Thay đổi trạng thái công việc</DialogTitle>
           <DialogDescription>
-            Change the status of "{task.title}" to move it through your
-            workflow.
+            Thay đổi trạng thái của "{task.title}" trong quy trình làm việc.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,7 +133,7 @@ export function ChangeStatusDialog({
           >
             {/* Current Status Display */}
             <div className='space-y-2'>
-              <label className='text-sm font-medium'>Current Status</label>
+              <label className='text-sm font-medium'>Trạng thái hiện tại</label>
               <div className='flex items-center gap-2'>
                 <Badge className={currentStatusColor} variant='outline'>
                   {currentStatusTitle}
@@ -148,7 +147,7 @@ export function ChangeStatusDialog({
               name='status'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Status</FormLabel>
+                  <FormLabel>Trạng thái mới</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
@@ -156,7 +155,7 @@ export function ChangeStatusDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder='Select new status' />
+                        <SelectValue placeholder='Chọn trạng thái mới' />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -209,7 +208,7 @@ export function ChangeStatusDialog({
                 onClick={handleCancel}
                 disabled={isSubmitting}
               >
-                Cancel
+                Huỷ
               </Button>
               <Button
                 type='submit'

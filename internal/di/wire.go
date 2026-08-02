@@ -234,10 +234,11 @@ func ProvideTaskUsecase(
 	notificationUsecase usecase.NotificationUsecase,
 	worktreeUsecase usecase.WorktreeUsecase,
 	jobClient usecase.JobClientInterface,
+	executionRepo repository.ExecutionRepository,
 	gitManager *git.GitManager,
 	prCreator *github.PRCreator,
 ) usecase.TaskUsecase {
-	return usecase.NewTaskUsecase(taskRepo, pullRequestRepo, projectRepo, planRepo, notificationUsecase, worktreeUsecase, jobClient, gitManager, prCreator)
+	return usecase.NewTaskUsecase(taskRepo, pullRequestRepo, projectRepo, planRepo, notificationUsecase, worktreeUsecase, jobClient, executionRepo, gitManager, prCreator)
 }
 
 // ProvideCLIManager provides a CLIManager instance
@@ -286,6 +287,7 @@ func ProvideWorktreeManager(cfg *config.Config) (*worktreesvc.WorktreeManager, e
 
 // ProvideJobProcessor provides a Processor instance
 func ProvideJobProcessor(
+	cfg *config.Config,
 	taskUsecase usecase.TaskUsecase,
 	projectUsecase usecase.ProjectUsecase,
 	worktreeUsecase usecase.WorktreeUsecase,
@@ -301,7 +303,9 @@ func ProvideJobProcessor(
 	githubService github.GitHubServiceInterface,
 	kanbanClient kanban.Client,
 ) *jobs.Processor {
-	return jobs.NewProcessor(taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepo, executionRepo, executionLogRepo, wsService, gitManager, prCreator, prRepo, githubService, kanbanClient)
+	redisAddr := cfg.Redis.Host + ":" + cfg.Redis.Port
+	redisBroker := jobs.NewRedisBrokerClient(redisAddr, cfg.Redis.Password, cfg.Redis.DB)
+	return jobs.NewProcessorWithRedisBroker(taskUsecase, projectUsecase, worktreeUsecase, planningService, executionService, planRepo, executionRepo, executionLogRepo, wsService, redisBroker, gitManager, prCreator, prRepo, githubService, kanbanClient)
 }
 
 // ProvideKanbanClient provides a Hermes Kanban client instance

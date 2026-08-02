@@ -1,3 +1,4 @@
+import { formatDate } from '@/i18n'
 import { ConnectionState } from '@/services/websocketService'
 import {
   WifiOff,
@@ -56,20 +57,20 @@ export function ConnectionStatus({
 
   const getStatusText = () => {
     if (connectionState.isReconnecting) {
-      return `Reconnecting... (${connectionState.reconnectAttempts})`
+      return `Đang kết nối lại... (${connectionState.reconnectAttempts})`
     }
 
     switch (connectionState.status) {
       case 'connected':
-        return 'Connected'
+        return 'Đã kết nối'
       case 'connecting':
-        return 'Connecting...'
+        return 'Đang kết nối...'
       case 'disconnected':
-        return 'Disconnected'
+        return 'Đã ngắt kết nối'
       case 'error':
-        return connectionState.lastError || 'Connection Error'
+        return connectionState.lastError || 'Lỗi kết nối'
       default:
-        return 'Unknown'
+        return 'Không xác định'
     }
   }
 
@@ -112,21 +113,19 @@ export function ConnectionStatus({
           </TooltipTrigger>
           <TooltipContent>
             <div className='text-sm'>
-              <div>Status: {getStatusText()}</div>
+              <div>Trạng thái: {getStatusText()}</div>
               {connectionState.connectedAt && (
-                <div>
-                  Connected: {connectionState.connectedAt.toLocaleTimeString()}
-                </div>
+                <div>Đã kết nối: {formatDate(connectionState.connectedAt)}</div>
               )}
               {connectionState.disconnectedAt &&
                 connectionState.status === 'disconnected' && (
                   <div>
-                    Disconnected:{' '}
-                    {connectionState.disconnectedAt.toLocaleTimeString()}
+                    Đã ngắt kết nối:{' '}
+                    {formatDate(connectionState.disconnectedAt)}
                   </div>
                 )}
               {queuedMessageCount > 0 && (
-                <div>Queued messages: {queuedMessageCount}</div>
+                <div>Tin nhắn đang chờ: {queuedMessageCount}</div>
               )}
             </div>
           </TooltipContent>
@@ -164,7 +163,7 @@ export function ConnectionStatus({
           onReconnect && (
             <Button variant='outline' size='sm' onClick={onReconnect}>
               <RefreshCw className='mr-1 h-4 w-4' />
-              Reconnect
+              Kết nối lại
             </Button>
           )}
       </div>
@@ -174,7 +173,7 @@ export function ConnectionStatus({
           <div className='text-muted-foreground flex items-center gap-2 text-sm'>
             <Loader2 className='h-4 w-4 animate-spin' />
             <span>
-              Attempting to reconnect... (Attempt{' '}
+              Đang thử kết nối lại... (Lần thử{' '}
               {connectionState.reconnectAttempts})
             </span>
           </div>
@@ -286,7 +285,7 @@ export function ReconnectionProgress({
   return (
     <div className={cn('space-y-2', className)}>
       <div className='flex items-center justify-between text-sm'>
-        <span className='text-muted-foreground'>Reconnecting...</span>
+        <span className='text-muted-foreground'>Đang kết nối lại...</span>
         <span className='text-muted-foreground'>
           {attempt}/{maxAttempts}
         </span>

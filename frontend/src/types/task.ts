@@ -57,6 +57,9 @@ export interface TaskPlan {
   status: string
   created_at: string
   updated_at: string
+  revision_of_plan_id?: string
+  revision_feedback?: string
+  revision_execution_id?: string
 }
 
 export interface TaskPlansResponse {
@@ -98,6 +101,8 @@ export interface TasksResponse {
 export interface StartPlanningRequest {
   branch_name: string
   ai_type: string
+  model?: string
+  reasoning_effort?: string
   auto_implement?: boolean
   use_remote_branch?: boolean
 }
@@ -108,33 +113,85 @@ export interface StartPlanningResponse {
 }
 
 export interface ApprovePlanRequest {
+  plan_id: string
   ai_type: string
+  model?: string
+  reasoning_effort?: string
+}
+
+export interface StartImplementingDirectRequest {
+  branch_name: string
+  ai_type: string
+  model?: string
+  reasoning_effort?: string
+  use_remote_branch?: boolean
+}
+
+export interface AIOption {
+  name: string
+  value: string
+  description: string
+  models: AIModel[]
+}
+
+export interface AIModel {
+  id: string
+  name: string
+  description: string
+  reasoning_levels?: AIReasoningLevel[]
+}
+
+export interface AIReasoningLevel {
+  value: string
+  name: string
+  description: string
 }
 
 export function getAIs(forPlanning: boolean) {
-  const claudeCode = {
+  const claudeCode: AIOption = {
     name: 'Claude Code',
     value: 'claude-code',
     description: 'Anthropic Claude Code',
+    models: [],
   }
-  const fakeCode = {
+  const fakeCode: AIOption = {
     name: 'Fake Code',
     value: 'fake-code',
     description: 'Test/Demo AI',
+    models: [
+      {
+        id: 'fake-code',
+        name: 'Mô phỏng',
+        description: 'Không dùng model thật',
+      },
+    ],
   }
-  const cursorAgent = {
+  const cursorAgent: AIOption = {
     name: 'Cursor Agent',
     value: 'cursor-agent',
     description: 'Cursor Agent',
+    models: [],
   }
-  const deepSeek = {
+  const deepSeek: AIOption = {
     name: 'Deep Seek',
     value: 'deep-seek',
     description: 'Deep Seek',
+    models: [],
+  }
+  const codex: AIOption = {
+    name: 'Codex',
+    value: 'codex',
+    description: 'OpenAI Codex CLI',
+    models: [],
   }
   // Cursor Agent does not support planning, so it is not included in the planning AIs
   if (forPlanning) {
-    return [claudeCode, deepSeek, fakeCode]
+    return [claudeCode, codex, deepSeek, fakeCode]
   }
-  return [claudeCode, deepSeek, fakeCode, cursorAgent]
+  return [claudeCode, codex, deepSeek, fakeCode, cursorAgent]
+}
+
+export function getValidAIType(aiType: string | null, forPlanning: boolean) {
+  const ais = getAIs(forPlanning)
+  return ais.some((ai) => ai.value === aiType) ? aiType! : ais[0].value
 }

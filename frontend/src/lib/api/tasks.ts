@@ -10,6 +10,7 @@ import type {
   StartPlanningRequest,
   StartPlanningResponse,
   ApprovePlanRequest,
+  StartImplementingDirectRequest,
   TaskPlansResponse,
 } from '@/types/task'
 
@@ -106,6 +107,18 @@ export const tasksApi = {
     })
   },
 
+  async revisePlan(
+    taskId: string,
+    planId: string,
+    feedback: string
+  ): Promise<{ job_id: string }> {
+    const response = await api.post(
+      `${API_ENDPOINTS.TASKS}/${taskId}/plans/${planId}/revise`,
+      { feedback }
+    )
+    return response.data
+  },
+
   async getTaskDiff(taskId: string): Promise<string> {
     const response = await api.get(`${API_ENDPOINTS.TASKS}/${taskId}/diff`, {
       responseType: 'text',
@@ -115,14 +128,17 @@ export const tasksApi = {
 
   async createPullRequestForTask(taskId: string): Promise<any> {
     const response = await api.post(
-      `${API_ENDPOINTS.TASKS}/${taskId}/pull-request`
+      `${API_ENDPOINTS.TASKS}/${taskId}/pull-request`,
+      undefined,
+      // GitHub API calls can take longer than the default 10s UI timeout.
+      { timeout: 60_000 }
     )
     return response.data
   },
 
   async startImplementingDirect(
     taskId: string,
-    request: { branch_name: string; ai_type: string; use_remote_branch?: boolean }
+    request: StartImplementingDirectRequest
   ): Promise<StartPlanningResponse> {
     const response = await api.post(
       `${API_ENDPOINTS.TASKS}/${taskId}/start-implementing-direct`,

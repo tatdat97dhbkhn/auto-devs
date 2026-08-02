@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { IconCheck, IconMoon, IconSun } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/context/theme-context'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import {
 
 export function ThemeSwitch() {
   const { theme, setTheme } = useTheme()
+  const { t } = useTranslation()
 
   /* Update theme-color meta tag
    * when theme is updated */
@@ -27,26 +29,26 @@ export function ThemeSwitch() {
         <Button variant='ghost' size='icon' className='scale-95 rounded-full'>
           <IconSun className='size-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90' />
           <IconMoon className='absolute size-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0' />
-          <span className='sr-only'>Toggle theme</span>
+          <span className='sr-only'>{t('accessibility.toggleTheme')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
         <DropdownMenuItem onClick={() => setTheme('light')}>
-          Light{' '}
+          Sáng{' '}
           <IconCheck
             size={14}
             className={cn('ml-auto', theme !== 'light' && 'hidden')}
           />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('dark')}>
-          Dark
+          Tối
           <IconCheck
             size={14}
             className={cn('ml-auto', theme !== 'dark' && 'hidden')}
           />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('system')}>
-          System
+          Hệ thống
           <IconCheck
             size={14}
             className={cn('ml-auto', theme !== 'system' && 'hidden')}

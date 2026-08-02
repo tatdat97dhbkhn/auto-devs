@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -224,6 +225,42 @@ func (gs *GitHubService) GetPullRequest(ctx context.Context, repo string, prNumb
 	}
 
 	return gs.convertToEntityPR(&ghPR, repo), nil
+}
+
+// FindOpenPullRequest finds an open PR for the requested base/head pair.
+func (gs *GitHubService) FindOpenPullRequest(ctx context.Context, repo, base, head string) (*entity.PullRequest, error) {
+	if err := gs.validateRepository(repo); err != nil {
+		return nil, fmt.Errorf("invalid repository: %w", err)
+	}
+	if strings.TrimSpace(base) == "" || strings.TrimSpace(head) == "" {
+		return nil, fmt.Errorf("base and head branches are required")
+	}
+	if err := gs.rateLimiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limit error: %w", err)
+	}
+	requestURL := fmt.Sprintf("%s/repos/%s/pulls?state=open&base=%s&head=%s", gs.config.BaseURL, repo, neturl.QueryEscape(base), neturl.QueryEscape(head))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	gs.setHeaders(req)
+	resp, err := gs.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	gs.rateLimiter.UpdateFromResponse(resp)
+	if resp.StatusCode != http.StatusOK {
+		return nil, gs.handleErrorResponse(resp)
+	}
+	var prs []GitHubPullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&prs); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if len(prs) == 0 {
+		return nil, nil
+	}
+	return gs.convertToEntityPR(&prs[0], repo), nil
 }
 
 // UpdatePullRequest updates a pull request on GitHub

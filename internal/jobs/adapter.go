@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/auto-devs/auto-devs/internal/usecase"
@@ -20,6 +21,16 @@ type JobClientAdapter struct {
 	client ClientInterface
 }
 
+func (a *JobClientAdapter) EnqueueTaskPlanRevision(payload *usecase.TaskPlanRevisionPayload, delay time.Duration) (string, error) {
+	client, ok := a.client.(interface {
+		EnqueueTaskPlanRevisionString(*TaskPlanRevisionPayload, time.Duration) (string, error)
+	})
+	if !ok {
+		return "", fmt.Errorf("job client does not support plan revisions")
+	}
+	return client.EnqueueTaskPlanRevisionString(&TaskPlanRevisionPayload{TaskID: payload.TaskID, PlanID: payload.PlanID, AIType: payload.AIType, Model: payload.Model, ReasoningEffort: payload.ReasoningEffort, Feedback: payload.Feedback}, delay)
+}
+
 // NewJobClientAdapter creates a new job client adapter
 func NewJobClientAdapter(client ClientInterface) usecase.JobClientInterface {
 	return &JobClientAdapter{
@@ -35,6 +46,8 @@ func (a *JobClientAdapter) EnqueueTaskPlanning(payload *usecase.TaskPlanningPayl
 		BranchName:      payload.BranchName,
 		ProjectID:       payload.ProjectID,
 		AIType:          payload.AIType,
+		Model:           payload.Model,
+		ReasoningEffort: payload.ReasoningEffort,
 		AutoImplement:   payload.AutoImplement,
 		UseRemoteBranch: payload.UseRemoteBranch,
 	}
@@ -53,8 +66,11 @@ func (a *JobClientAdapter) EnqueueTaskImplementation(payload *usecase.TaskImplem
 	// Convert usecase payload to jobs package payload
 	jobPayload := &TaskImplementationPayload{
 		TaskID:          payload.TaskID,
+		PlanID:          payload.PlanID,
 		ProjectID:       payload.ProjectID,
 		AIType:          payload.AIType,
+		Model:           payload.Model,
+		ReasoningEffort: payload.ReasoningEffort,
 		UseRemoteBranch: payload.UseRemoteBranch,
 	}
 

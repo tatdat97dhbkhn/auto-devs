@@ -203,14 +203,16 @@ export const taskApprovePlanTool: Tool = {
     properties: {
       taskId: { type: 'string', description: 'Task ID' },
       aiType: { type: 'string', description: 'AI agent type for implementation' },
+      planId: { type: 'string', description: 'Plan ID to approve' },
     },
-    required: ['taskId', 'aiType'],
+    required: ['taskId', 'aiType', 'planId'],
   },
 };
 
 export async function executeTaskApprovePlan(input: Record<string, unknown>): Promise<string> {
   const result = await client.approvePlan(input.taskId as string, {
     aiType: input.aiType as string,
+    planId: input.planId as string,
   });
   return JSON.stringify(result, null, 2);
 }

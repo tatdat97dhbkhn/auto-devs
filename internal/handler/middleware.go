@@ -74,7 +74,7 @@ func ErrorHandlingMiddleware() gin.HandlerFunc {
 		if err, ok := recovered.(string); ok {
 			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 				Error:   err,
-				Message: "Internal server error",
+				Message: "Lỗi máy chủ nội bộ",
 				Code:    http.StatusInternalServerError,
 			})
 		}
@@ -149,7 +149,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		if !limiter.Allow() {
 			c.JSON(http.StatusTooManyRequests, dto.ErrorResponse{
 				Error:   "Rate limit exceeded",
-				Message: "Too many requests, please try again later",
+				Message: "Quá nhiều yêu cầu, vui lòng thử lại sau",
 				Code:    http.StatusTooManyRequests,
 			})
 			c.Abort()

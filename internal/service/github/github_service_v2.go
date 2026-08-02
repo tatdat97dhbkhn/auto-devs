@@ -81,7 +81,7 @@ func (gs *GitHubServiceV2) CreatePullRequest(ctx context.Context, repo, base, he
 	// Create pull request
 	ghPR, resp, err := gs.client.PullRequests.Create(ctx, owner, name, prRequest)
 	if err != nil {
-		fmt.Println("failed to create pull request: %w", err)
+		fmt.Printf("failed to create pull request: %v\n", err)
 		// Update rate limiter from response
 		if resp != nil {
 			gs.rateLimiter.UpdateFromGitHubResponse(resp)
@@ -127,6 +127,36 @@ func (gs *GitHubServiceV2) GetPullRequest(ctx context.Context, repo string, prNu
 	gs.rateLimiter.UpdateFromGitHubResponse(resp)
 
 	return gs.convertToEntityPR(ghPR, repo), nil
+}
+
+// FindOpenPullRequest finds an open PR for the requested base/head pair.
+func (gs *GitHubServiceV2) FindOpenPullRequest(ctx context.Context, repo, base, head string) (*entity.PullRequest, error) {
+	if err := gs.validateRepository(repo); err != nil {
+		return nil, fmt.Errorf("invalid repository: %w", err)
+	}
+	if strings.TrimSpace(base) == "" || strings.TrimSpace(head) == "" {
+		return nil, fmt.Errorf("base and head branches are required")
+	}
+	if err := gs.rateLimiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limit error: %w", err)
+	}
+	owner, name := gs.parseRepository(repo)
+	prs, resp, err := gs.client.PullRequests.List(ctx, owner, name, &github.PullRequestListOptions{
+		State:       "open",
+		Base:        base,
+		Head:        owner + ":" + head,
+		ListOptions: github.ListOptions{PerPage: 100},
+	})
+	if resp != nil {
+		gs.rateLimiter.UpdateFromGitHubResponse(resp)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find open pull request: %w", err)
+	}
+	if len(prs) == 0 {
+		return nil, nil
+	}
+	return gs.convertToEntityPR(prs[0], repo), nil
 }
 
 // UpdatePullRequest updates a pull request on GitHub

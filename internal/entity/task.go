@@ -264,40 +264,41 @@ func (ts TaskStatus) GetDisplayName() string {
 }
 
 type Task struct {
-	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	ProjectID      uuid.UUID      `json:"project_id" gorm:"type:uuid;not null" validate:"required"`
-	Title          string         `json:"title" gorm:"size:255;not null" validate:"required,min=1,max=255"`
-	Description    string         `json:"description" gorm:"size:1000" validate:"max=1000"`
-	Status         TaskStatus     `json:"status" gorm:"size:50;not null;default:'TODO'" validate:"required,oneof=TODO PLANNING PLAN_REVIEWING IMPLEMENTING CODE_REVIEWING DONE CANCELLED"`
-	Priority       TaskPriority   `json:"priority" gorm:"size:20;default:'MEDIUM'" validate:"oneof=LOW MEDIUM HIGH URGENT"`
-	BranchName     *string        `json:"branch_name,omitempty" gorm:"size:255"`
-	PullRequest    *string        `json:"pull_request,omitempty" gorm:"size:255"`
-	WorktreePath   *string        `json:"worktree_path,omitempty" gorm:"type:text"`
-	GitStatus      TaskGitStatus  `json:"git_status" gorm:"size:50;default:'none'"`
-	EstimatedHours *float64       `json:"estimated_hours,omitempty" gorm:"type:decimal(5,2)" validate:"min=0,max=999.99"`
-	ActualHours    *float64       `json:"actual_hours,omitempty" gorm:"type:decimal(5,2)" validate:"min=0,max=999.99"`
-	Tags           []string       `json:"tags,omitempty" gorm:"-"` // Will be stored as JSON in database
-	TagsJSON       string         `json:"-" gorm:"column:tags;type:jsonb"`
-	ParentTaskID   *uuid.UUID     `json:"parent_task_id,omitempty" gorm:"type:uuid"`
-	IsArchived     bool           `json:"is_archived" gorm:"default:false"`
-	IsTemplate     bool           `json:"is_template" gorm:"default:false"`
-	TemplateID     *uuid.UUID     `json:"template_id,omitempty" gorm:"type:uuid"`
-	AssignedTo     *string        `json:"assigned_to,omitempty" gorm:"size:255"` // User ID for future assignment
-	KanbanTaskID   *string        `json:"kanban_task_id,omitempty" gorm:"size:64"` // Hermes kanban card ID for callback
-	DueDate        *time.Time     `json:"due_date,omitempty"`
-	CreatedAt      time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt      time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
-	BaseBranchName  *string  `json:"base_branch_name,omitempty" gorm:"size:255"`
-	ErrorLogEntries []string `json:"error_logs,omitempty" gorm:"-"`
-	ErrorLogsJSON   string   `json:"-" gorm:"column:error_logs;type:text"`
+	ID              uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ProjectID       uuid.UUID      `json:"project_id" gorm:"type:uuid;not null" validate:"required"`
+	Title           string         `json:"title" gorm:"size:255;not null" validate:"required,min=1,max=255"`
+	Description     string         `json:"description" gorm:"size:1000" validate:"max=1000"`
+	Status          TaskStatus     `json:"status" gorm:"size:50;not null;default:'TODO'" validate:"required,oneof=TODO PLANNING PLAN_REVIEWING IMPLEMENTING CODE_REVIEWING DONE CANCELLED"`
+	Priority        TaskPriority   `json:"priority" gorm:"size:20;default:'MEDIUM'" validate:"oneof=LOW MEDIUM HIGH URGENT"`
+	BranchName      *string        `json:"branch_name,omitempty" gorm:"size:255"`
+	PullRequest     *string        `json:"pull_request,omitempty" gorm:"size:255"`
+	WorktreePath    *string        `json:"worktree_path,omitempty" gorm:"type:text"`
+	GitStatus       TaskGitStatus  `json:"git_status" gorm:"size:50;default:'none'"`
+	EstimatedHours  *float64       `json:"estimated_hours,omitempty" gorm:"type:decimal(5,2)" validate:"min=0,max=999.99"`
+	ActualHours     *float64       `json:"actual_hours,omitempty" gorm:"type:decimal(5,2)" validate:"min=0,max=999.99"`
+	Tags            []string       `json:"tags,omitempty" gorm:"-"` // Will be stored as JSON in database
+	TagsJSON        string         `json:"-" gorm:"column:tags;type:jsonb"`
+	ParentTaskID    *uuid.UUID     `json:"parent_task_id,omitempty" gorm:"type:uuid"`
+	IsArchived      bool           `json:"is_archived" gorm:"default:false"`
+	IsTemplate      bool           `json:"is_template" gorm:"default:false"`
+	TemplateID      *uuid.UUID     `json:"template_id,omitempty" gorm:"type:uuid"`
+	AssignedTo      *string        `json:"assigned_to,omitempty" gorm:"size:255"`   // User ID for future assignment
+	KanbanTaskID    *string        `json:"kanban_task_id,omitempty" gorm:"size:64"` // Hermes kanban card ID for callback
+	DueDate         *time.Time     `json:"due_date,omitempty"`
+	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	BaseBranchName  *string        `json:"base_branch_name,omitempty" gorm:"size:255"`
+	ErrorLogEntries []string       `json:"error_logs,omitempty" gorm:"-"`
+	ErrorLogsJSON   string         `json:"-" gorm:"column:error_logs;type:text"`
 
 	// Relationships
-	Project    *Project       `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
-	ParentTask *Task          `json:"parent_task,omitempty" gorm:"foreignKey:ParentTaskID"`
-	Subtasks   []Task         `json:"subtasks,omitempty" gorm:"foreignKey:ParentTaskID"`
-	AuditLogs  []TaskAuditLog `json:"audit_logs,omitempty" gorm:"foreignKey:TaskID"`
-	Plans      []Plan         `json:"plan,omitempty" gorm:"foreignKey:TaskID"`
+	Project        *Project       `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
+	ParentTask     *Task          `json:"parent_task,omitempty" gorm:"foreignKey:ParentTaskID"`
+	Subtasks       []Task         `json:"subtasks,omitempty" gorm:"foreignKey:ParentTaskID"`
+	AuditLogs      []TaskAuditLog `json:"audit_logs,omitempty" gorm:"foreignKey:TaskID"`
+	Plans          []Plan         `json:"plan,omitempty" gorm:"foreignKey:TaskID"`
+	RevisionPrompt string         `json:"-" gorm:"-"`
 }
 
 // TaskAuditLog tracks all modifications to tasks

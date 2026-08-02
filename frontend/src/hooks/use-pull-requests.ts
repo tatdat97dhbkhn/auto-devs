@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { pullRequestsApi } from '@/lib/api/pull-requests'
 import { tasksApi } from '@/lib/api/tasks'
+import { toast } from 'sonner'
 
 export function usePullRequestByTask(taskId: string, enabled = true) {
   return useQuery({
@@ -24,6 +25,11 @@ export function useCreatePullRequest() {
       })
       // Set the new pull request data in the cache
       queryClient.setQueryData(['pull-request-by-task', taskId], data)
+    },
+    onError: (error: any) => {
+      const response = error?.response?.data
+      const message = response?.error || response?.message || error?.message
+      toast.error(message || 'Không thể tạo Pull Request')
     },
   })
 }

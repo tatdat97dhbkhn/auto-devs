@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/auto-devs/auto-devs/internal/entity"
 	"github.com/auto-devs/auto-devs/internal/handler/dto"
@@ -47,6 +49,10 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 
 	task, err := h.taskUsecase.Create(c.Request.Context(), usecaseReq)
 	if err != nil {
+		if errors.Is(err, usecase.ErrTaskTitleExists) {
+			c.JSON(http.StatusConflict, dto.NewErrorResponse(nil, http.StatusConflict, "Công việc với tiêu đề này đã tồn tại trong dự án"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.NewErrorResponse(err, http.StatusInternalServerError, "Failed to create task"))
 		return
 	}
@@ -170,6 +176,30 @@ func (h *TaskHandler) UpdateTaskPlan(c *gin.Context) {
 	response := &dto.PlanResponse{}
 	response.FromEntity(plan)
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *TaskHandler) RevisePlan(c *gin.Context) {
+	taskID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.NewErrorResponse(err, 400, "Invalid task ID"))
+		return
+	}
+	planID, err := uuid.Parse(c.Param("planId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.NewErrorResponse(err, 400, "Invalid plan ID"))
+		return
+	}
+	var req dto.PlanRevisionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.NewErrorResponse(err, 400, "Feedback không được để trống"))
+		return
+	}
+	jobID, err := h.taskUsecase.RevisePlan(c.Request.Context(), taskID, planID, req.Feedback)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.NewErrorResponse(err, 400, err.Error()))
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"job_id": jobID})
 }
 
 // ListTasks godoc
@@ -365,6 +395,10 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 
 	task, err := h.taskUsecase.Update(c.Request.Context(), id, usecaseReq)
 	if err != nil {
+		if errors.Is(err, usecase.ErrTaskTitleExists) {
+			c.JSON(http.StatusConflict, dto.NewErrorResponse(nil, http.StatusConflict, "Công việc với tiêu đề này đã tồn tại trong dự án"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.NewErrorResponse(err, http.StatusInternalServerError, "Failed to update task"))
 		return
 	}
@@ -444,14 +478,14 @@ func (h *TaskHandler) StartPlanning(c *gin.Context) {
 	}
 
 	// Start planning (this will enqueue a background job)
-	jobID, err := h.taskUsecase.StartPlanning(c.Request.Context(), id, req.BranchName, req.AIType, req.AutoImplement, req.UseRemoteBranch)
+	jobID, err := h.taskUsecase.StartPlanning(c.Request.Context(), id, req.BranchName, req.AIType, req.Model, req.ReasoningEffort, req.AutoImplement, req.UseRemoteBranch)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.NewErrorResponse(err, http.StatusInternalServerError, "Failed to start planning"))
 		return
 	}
 
 	response := dto.StartPlanningResponse{
-		Message: "Planning started successfully",
+		Message: "Đã bắt đầu lập kế hoạch",
 		JobID:   jobID,
 	}
 	c.JSON(http.StatusOK, response)
@@ -497,14 +531,14 @@ func (h *TaskHandler) ApprovePlan(c *gin.Context) {
 	}
 
 	// Approve plan and start implementation (this will enqueue a background job)
-	jobID, err := h.taskUsecase.ApprovePlan(c.Request.Context(), id, req.AIType)
+	jobID, err := h.taskUsecase.ApprovePlan(c.Request.Context(), id, req.PlanID, req.AIType, req.Model, req.ReasoningEffort)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.NewErrorResponse(err, http.StatusInternalServerError, "Failed to approve plan and start implementation"))
+		c.JSON(http.StatusBadRequest, dto.NewErrorResponse(err, http.StatusBadRequest, "Failed to approve plan and start implementation"))
 		return
 	}
 
 	response := dto.StartPlanningResponse{
-		Message: "Plan approved and implementation started successfully",
+		Message: "Đã duyệt kế hoạch và bắt đầu triển khai",
 		JobID:   jobID,
 	}
 	c.JSON(http.StatusOK, response)
@@ -597,7 +631,7 @@ func (h *TaskHandler) OpenWithCursor(c *gin.Context) {
 	}
 
 	response := dto.SuccessResponse{
-		Message: "Successfully opened workspace with Cursor",
+		Message: "Đã mở workspace bằng Cursor",
 	}
 	c.JSON(http.StatusOK, response)
 }
@@ -625,6 +659,12 @@ func (h *TaskHandler) GetTaskDiff(c *gin.Context) {
 	// Get task diff
 	diff, err := h.taskUsecase.GetTaskDiff(c.Request.Context(), id)
 	if err != nil {
+		// A task may be deleted while the detail sheet still has an in-flight
+		// diff request. Report that expected race as 404, not 500.
+		if strings.Contains(strings.ToLower(err.Error()), "task not found") {
+			c.JSON(http.StatusNotFound, dto.NewErrorResponse(err, http.StatusNotFound, "Task not found"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.NewErrorResponse(err, http.StatusInternalServerError, "Failed to get task diff"))
 		return
 	}

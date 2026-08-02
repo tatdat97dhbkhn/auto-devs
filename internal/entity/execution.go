@@ -10,6 +10,14 @@ import (
 // ExecutionStatus represents the current status of an execution
 type ExecutionStatus string
 
+type ExecutionType string
+
+const (
+	ExecutionTypePlanning       ExecutionType = "PLANNING"
+	ExecutionTypePlanRevision   ExecutionType = "PLAN_REVISION"
+	ExecutionTypeImplementation ExecutionType = "IMPLEMENTATION"
+)
+
 const (
 	ExecutionStatusPending   ExecutionStatus = "PENDING"
 	ExecutionStatusRunning   ExecutionStatus = "RUNNING"
@@ -32,17 +40,23 @@ func (es ExecutionStatus) IsValid() bool {
 
 // Execution represents an AI execution instance
 type Execution struct {
-	ID           uuid.UUID       `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	TaskID       uuid.UUID       `json:"task_id" gorm:"type:uuid;not null;index"`
-	Status       ExecutionStatus `json:"status" gorm:"type:varchar(20);not null;index"`
-	StartedAt    time.Time       `json:"started_at" gorm:"not null"`
-	CompletedAt  *time.Time      `json:"completed_at,omitempty"`
-	ErrorMessage string          `json:"error_message,omitempty" gorm:"type:text"`
-	Progress     float64         `json:"progress" gorm:"default:0.0;check:progress >= 0 AND progress <= 1"`
-	Result       *string         `json:"result,omitempty" gorm:"type:jsonb"` // JSON serialized ExecutionResult
-	CreatedAt    time.Time       `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt    gorm.DeletedAt  `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string" swaggertype:"string"`
+	ID              uuid.UUID       `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	TaskID          uuid.UUID       `json:"task_id" gorm:"type:uuid;not null;index"`
+	ExecutionType   ExecutionType   `json:"execution_type,omitempty" gorm:"type:varchar(30);index"`
+	AIType          string          `json:"ai_type,omitempty" gorm:"type:varchar(50)"`
+	Model           string          `json:"model,omitempty" gorm:"type:varchar(255)"`
+	ReasoningEffort string          `json:"reasoning_effort,omitempty" gorm:"type:varchar(30)"`
+	SessionID       *string         `json:"-" gorm:"type:varchar(255)"`
+	ContextMode     string          `json:"-" gorm:"type:varchar(20)"`
+	Status          ExecutionStatus `json:"status" gorm:"type:varchar(20);not null;index"`
+	StartedAt       time.Time       `json:"started_at" gorm:"not null"`
+	CompletedAt     *time.Time      `json:"completed_at,omitempty"`
+	ErrorMessage    string          `json:"error_message,omitempty" gorm:"type:text"`
+	Progress        float64         `json:"progress" gorm:"default:0.0;check:progress >= 0 AND progress <= 1"`
+	Result          *string         `json:"result,omitempty" gorm:"type:jsonb"` // JSON serialized ExecutionResult
+	CreatedAt       time.Time       `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt       gorm.DeletedAt  `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string" swaggertype:"string"`
 
 	// Relationships
 	Task      *Task          `json:"task,omitempty" gorm:"foreignKey:TaskID;references:ID"`

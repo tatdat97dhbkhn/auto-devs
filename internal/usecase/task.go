@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,12 +17,24 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrTaskTitleExists = errors.New("task title already exists in project")
+
 // JobClientInterface defines the interface for job client operations
 type JobClientInterface interface {
 	EnqueueTaskPlanning(payload *TaskPlanningPayload, delay time.Duration) (string, error)
 	EnqueueTaskImplementation(payload *TaskImplementationPayload, delay time.Duration) (string, error)
+	EnqueueTaskPlanRevision(payload *TaskPlanRevisionPayload, delay time.Duration) (string, error)
 	EnqueueWorktreeCreate(payload *WorktreeCreatePayload, delay time.Duration) (string, error)
 	EnqueueKanbanNotify(payload *KanbanNotifyPayload) (string, error)
+}
+
+type TaskPlanRevisionPayload struct {
+	TaskID          uuid.UUID `json:"task_id"`
+	PlanID          uuid.UUID `json:"plan_id"`
+	AIType          string    `json:"ai_type"`
+	Model           string    `json:"model,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
+	Feedback        string    `json:"feedback"`
 }
 
 // TaskPlanningPayload represents the payload for task planning jobs
@@ -30,16 +43,21 @@ type TaskPlanningPayload struct {
 	BranchName      string    `json:"branch_name"`
 	ProjectID       uuid.UUID `json:"project_id"`
 	AIType          string    `json:"ai_type"`
+	Model           string    `json:"model,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
 	AutoImplement   bool      `json:"auto_implement"`
 	UseRemoteBranch bool      `json:"use_remote_branch"`
 }
 
 // TaskImplementationPayload represents the payload for task implementation jobs
 type TaskImplementationPayload struct {
-	TaskID          uuid.UUID `json:"task_id"`
-	ProjectID       uuid.UUID `json:"project_id"`
-	AIType          string    `json:"ai_type"`
-	UseRemoteBranch bool      `json:"use_remote_branch"`
+	TaskID          uuid.UUID  `json:"task_id"`
+	PlanID          *uuid.UUID `json:"plan_id,omitempty"`
+	ProjectID       uuid.UUID  `json:"project_id"`
+	AIType          string     `json:"ai_type"`
+	Model           string     `json:"model,omitempty"`
+	ReasoningEffort string     `json:"reasoning_effort,omitempty"`
+	UseRemoteBranch bool       `json:"use_remote_branch"`
 }
 
 // KanbanNotifyPayload represents the payload for Hermes kanban callback jobs
@@ -134,9 +152,10 @@ type TaskUsecase interface {
 	ValidateGitStatusTransition(ctx context.Context, taskID uuid.UUID, newGitStatus entity.TaskGitStatus) error
 
 	// Planning workflow
-	StartPlanning(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, autoImplement bool, useRemoteBranch bool) (string, error) // returns job ID
-	ApprovePlan(ctx context.Context, taskID uuid.UUID, aiType string) (string, error)                      // returns job ID
-	StartImplementingDirect(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, useRemoteBranch bool) (string, error) // returns job ID
+	StartPlanning(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, model string, reasoningEffort string, autoImplement bool, useRemoteBranch bool) (string, error) // returns job ID
+	ApprovePlan(ctx context.Context, taskID uuid.UUID, planID uuid.UUID, aiType string, model string, reasoningEffort string) (string, error)                                              // returns job ID
+	StartImplementingDirect(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, model string, reasoningEffort string, useRemoteBranch bool) (string, error)           // returns job ID
+	RevisePlan(ctx context.Context, taskID, planID uuid.UUID, feedback string) (string, error)
 	ListGitBranches(ctx context.Context, projectID uuid.UUID) ([]GitBranch, error)
 
 	// Pull requests
@@ -272,6 +291,7 @@ type taskUsecase struct {
 	notificationUsecase NotificationUsecase
 	worktreeUsecase     WorktreeUsecase
 	jobClient           JobClientInterface
+	executionRepo       repository.ExecutionRepository
 	gitManager          *git.GitManager
 	prCreator           *github.PRCreator
 }
@@ -284,6 +304,7 @@ func NewTaskUsecase(
 	notificationUsecase NotificationUsecase,
 	worktreeUsecase WorktreeUsecase,
 	jobClient JobClientInterface,
+	executionRepo repository.ExecutionRepository,
 	gitManager *git.GitManager,
 	prCreator *github.PRCreator,
 ) TaskUsecase {
@@ -295,6 +316,7 @@ func NewTaskUsecase(
 		notificationUsecase: notificationUsecase,
 		worktreeUsecase:     worktreeUsecase,
 		jobClient:           jobClient,
+		executionRepo:       executionRepo,
 		gitManager:          gitManager,
 		prCreator:           prCreator,
 	}
@@ -312,7 +334,7 @@ func (u *taskUsecase) Create(ctx context.Context, req CreateTaskRequest) (*entit
 	if isDuplicate, err := u.taskRepo.CheckDuplicateTitle(ctx, req.ProjectID, req.Title, nil); err != nil {
 		return nil, fmt.Errorf("failed to check duplicate title: %w", err)
 	} else if isDuplicate {
-		return nil, fmt.Errorf("task with title '%s' already exists in this project", req.Title)
+		return nil, fmt.Errorf("%w: %s", ErrTaskTitleExists, req.Title)
 	}
 
 	// Validate parent task if provided
@@ -384,7 +406,7 @@ func (u *taskUsecase) Update(ctx context.Context, id uuid.UUID, req UpdateTaskRe
 		if isDuplicate, err := u.taskRepo.CheckDuplicateTitle(ctx, task.ProjectID, req.Title, &id); err != nil {
 			return nil, fmt.Errorf("failed to check duplicate title: %w", err)
 		} else if isDuplicate {
-			return nil, fmt.Errorf("task with title '%s' already exists in this project", req.Title)
+			return nil, fmt.Errorf("%w: %s", ErrTaskTitleExists, req.Title)
 		}
 		task.Title = req.Title
 	}
@@ -507,6 +529,37 @@ func (u *taskUsecase) maybeEnqueueKanbanNotify(task *entity.Task, oldStatus, new
 }
 
 func (u *taskUsecase) Delete(ctx context.Context, id uuid.UUID) error {
+	task, err := u.taskRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get task before deletion: %w", err)
+	}
+
+	// Do not remove a worktree while an AI process may still be using it.
+	if u.executionRepo != nil {
+		executions, err := u.executionRepo.GetByTaskID(ctx, id)
+		if err != nil {
+			return fmt.Errorf("failed to check active executions: %w", err)
+		}
+		for _, execution := range executions {
+			if execution.IsActive() {
+				return fmt.Errorf("cannot delete task while execution %s is still active", execution.ID)
+			}
+		}
+	}
+
+	// Worktree cleanup is intentionally performed before the task is deleted.
+	// The branch is preserved; only the worktree directory and its metadata are
+	// removed. A cleanup failure aborts deletion so we do not orphan a worktree.
+	if u.worktreeUsecase != nil && task.WorktreePath != nil && strings.TrimSpace(*task.WorktreePath) != "" {
+		if err := u.worktreeUsecase.CleanupWorktreeForTask(ctx, CleanupWorktreeRequest{
+			TaskID:    task.ID,
+			ProjectID: task.ProjectID,
+			Force:     true,
+		}); err != nil {
+			return fmt.Errorf("failed to cleanup task worktree: %w", err)
+		}
+	}
+
 	return u.taskRepo.Delete(ctx, id)
 }
 
@@ -789,7 +842,12 @@ func (u *taskUsecase) BulkDelete(ctx context.Context, taskIDs []uuid.UUID) error
 		return fmt.Errorf("no task IDs provided")
 	}
 
-	return u.taskRepo.BulkDelete(ctx, taskIDs)
+	for _, taskID := range taskIDs {
+		if err := u.Delete(ctx, taskID); err != nil {
+			return fmt.Errorf("failed to delete task %s: %w", taskID, err)
+		}
+	}
+	return nil
 }
 
 // BulkArchive archives multiple tasks
@@ -1203,7 +1261,7 @@ func (u *taskUsecase) ValidateGitStatusTransition(ctx context.Context, taskID uu
 }
 
 // StartPlanning starts the planning process for a task
-func (u *taskUsecase) StartPlanning(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, autoImplement bool, useRemoteBranch bool) (string, error) {
+func (u *taskUsecase) StartPlanning(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, model string, reasoningEffort string, autoImplement bool, useRemoteBranch bool) (string, error) {
 	// Get task to validate it exists and is in TODO status
 	task, err := u.taskRepo.GetByID(ctx, taskID)
 	if err != nil {
@@ -1232,6 +1290,8 @@ func (u *taskUsecase) StartPlanning(ctx context.Context, taskID uuid.UUID, branc
 		BranchName:      branchName,
 		ProjectID:       task.ProjectID,
 		AIType:          aiType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 		AutoImplement:   autoImplement,
 		UseRemoteBranch: useRemoteBranch,
 	}
@@ -1244,17 +1304,124 @@ func (u *taskUsecase) StartPlanning(ctx context.Context, taskID uuid.UUID, branc
 	return jobID, nil
 }
 
+func (u *taskUsecase) RevisePlan(ctx context.Context, taskID, planID uuid.UUID, feedback string) (string, error) {
+	feedback = strings.TrimSpace(feedback)
+	if feedback == "" {
+		return "", fmt.Errorf("feedback must not be empty")
+	}
+	task, err := u.taskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get task: %w", err)
+	}
+	if task.Status != entity.TaskStatusPLANREVIEWING {
+		return "", fmt.Errorf("task must be in PLAN_REVIEWING status")
+	}
+	plans, err := u.GetPlansByTaskID(ctx, taskID)
+	if err != nil {
+		return "", err
+	}
+	var base *entity.Plan
+	for i := range plans {
+		if plans[i].ID == planID {
+			base = &plans[i]
+			break
+		}
+	}
+	if base == nil {
+		return "", fmt.Errorf("plan not found for task")
+	}
+	executions, err := u.executionRepo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get planning execution: %w", err)
+	}
+	for _, execution := range executions {
+		if execution.ExecutionType == entity.ExecutionTypePlanRevision && execution.IsActive() {
+			return "", fmt.Errorf("a plan revision is already running for this task")
+		}
+	}
+	var latest *entity.Execution
+	var legacyLatest *entity.Execution
+	for _, execution := range executions {
+		if execution.ExecutionType == entity.ExecutionTypePlanning || execution.ExecutionType == entity.ExecutionTypePlanRevision {
+			if latest == nil || execution.CreatedAt.After(latest.CreatedAt) {
+				latest = execution
+			}
+		} else if execution.ExecutionType == "" && (legacyLatest == nil || execution.CreatedAt.After(legacyLatest.CreatedAt)) {
+			legacyLatest = execution
+		}
+	}
+	if base.ExecutionID != nil {
+		for _, execution := range executions {
+			if execution.ID == *base.ExecutionID {
+				latest = execution
+				break
+			}
+		}
+	}
+	if latest == nil && base.RevisionExecutionID != nil {
+		for _, execution := range executions {
+			if execution.ID == *base.RevisionExecutionID {
+				latest = execution
+				break
+			}
+		}
+	}
+	if latest == nil {
+		latest = legacyLatest
+	}
+	if latest == nil || strings.TrimSpace(latest.AIType) == "" {
+		return "", fmt.Errorf("no valid planning execution found")
+	}
+	history := make([]string, 0)
+	for _, plan := range plans {
+		if strings.TrimSpace(plan.RevisionFeedback) != "" {
+			history = append(history, plan.RevisionFeedback)
+		}
+	}
+	payload := &TaskPlanRevisionPayload{TaskID: taskID, PlanID: planID, AIType: latest.AIType, Model: latest.Model, ReasoningEffort: latest.ReasoningEffort, Feedback: feedback}
+	// The worker reconstructs the complete context from persisted plans and this new feedback.
+	_ = history
+	return u.jobClient.EnqueueTaskPlanRevision(payload, 0)
+}
+
 // ApprovePlan approves the plan for a task and starts implementation
-func (u *taskUsecase) ApprovePlan(ctx context.Context, taskID uuid.UUID, aiType string) (string, error) {
+func (u *taskUsecase) ApprovePlan(ctx context.Context, taskID uuid.UUID, planID uuid.UUID, aiType string, model string, reasoningEffort string) (string, error) {
 	// Get task to validate it exists and is in PLAN_REVIEWING status
 	task, err := u.taskRepo.GetByID(ctx, taskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task: %w", err)
 	}
 
-	if task.Status != entity.TaskStatusPLANREVIEWING && task.Status != entity.TaskStatusIMPLEMENTING {
-		// Need check with IMPLEMENTING status for case status is changed by handler
+	if task.Status != entity.TaskStatusPLANREVIEWING {
 		return "", fmt.Errorf("task must be in PLAN_REVIEWING status to approve plan, current status: %s", task.Status)
+	}
+	executions, err := u.executionRepo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to check active plan revision: %w", err)
+	}
+	for _, execution := range executions {
+		if execution.ExecutionType == entity.ExecutionTypePlanRevision && execution.IsActive() {
+			return "", fmt.Errorf("cannot approve plan while a plan revision is in progress")
+		}
+	}
+	if planID == uuid.Nil {
+		return "", fmt.Errorf("plan_id is required to approve plan")
+	}
+	plan, err := u.planRepo.GetByID(ctx, planID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get plan: %w", err)
+	}
+	if plan.TaskID != taskID {
+		return "", fmt.Errorf("plan does not belong to task")
+	}
+	// A task can be moved back to PLAN_REVIEWING after an implementation or
+	// manual status change while its selected plan remains APPROVED. Treat that
+	// as a re-approval instead of rejecting an otherwise valid implementation.
+	if plan.Status != entity.PlanStatusREVIEWING && plan.Status != entity.PlanStatusDRAFT && plan.Status != entity.PlanStatusAPPROVED {
+		return "", fmt.Errorf("plan is not in a state that can be approved: %s", plan.Status)
+	}
+	if err := u.planRepo.UpdateStatus(ctx, planID, entity.PlanStatusAPPROVED); err != nil {
+		return "", fmt.Errorf("failed to approve plan: %w", err)
 	}
 
 	// Note: Status update to IMPLEMENTING is now handled by the WebSocket handler
@@ -1262,9 +1429,12 @@ func (u *taskUsecase) ApprovePlan(ctx context.Context, taskID uuid.UUID, aiType 
 
 	// Enqueue the implementation job using asynq client
 	payload := &TaskImplementationPayload{
-		TaskID:    taskID,
-		ProjectID: task.ProjectID,
-		AIType:    aiType,
+		TaskID:          taskID,
+		PlanID:          &planID,
+		ProjectID:       task.ProjectID,
+		AIType:          aiType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 	}
 
 	jobID, err := u.jobClient.EnqueueTaskImplementation(payload, 0)
@@ -1276,7 +1446,7 @@ func (u *taskUsecase) ApprovePlan(ctx context.Context, taskID uuid.UUID, aiType 
 }
 
 // StartImplementingDirect skips planning and goes directly from TODO to IMPLEMENTING
-func (u *taskUsecase) StartImplementingDirect(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, useRemoteBranch bool) (string, error) {
+func (u *taskUsecase) StartImplementingDirect(ctx context.Context, taskID uuid.UUID, branchName string, aiType string, model string, reasoningEffort string, useRemoteBranch bool) (string, error) {
 	task, err := u.taskRepo.GetByID(ctx, taskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task: %w", err)
@@ -1302,6 +1472,8 @@ func (u *taskUsecase) StartImplementingDirect(ctx context.Context, taskID uuid.U
 		TaskID:          taskID,
 		ProjectID:       task.ProjectID,
 		AIType:          aiType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 		UseRemoteBranch: useRemoteBranch,
 	}
 

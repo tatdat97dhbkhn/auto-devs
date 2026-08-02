@@ -4,6 +4,7 @@ import type {
   UpdateTaskRequest,
   StartPlanningRequest,
   ApprovePlanRequest,
+  StartImplementingDirectRequest,
 } from '@/types/task'
 import { toast } from 'sonner'
 import { tasksApi } from '@/lib/api/tasks'
@@ -37,10 +38,13 @@ export function useCreateTask() {
       queryClient.invalidateQueries({
         queryKey: [TASKS_QUERY_KEY, newTask.project_id],
       })
-      toast.success('Task created successfully')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create task')
+      toast.error(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          'Không thể tạo công việc'
+      )
     },
   })
 }
@@ -65,10 +69,12 @@ export function useUpdateTask() {
         queryKey: [TASKS_QUERY_KEY, updatedTask.project_id],
       })
 
-      toast.success('Task updated successfully')
+      toast.success('Đã cập nhật công việc thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update task')
+      toast.error(
+        error.response?.data?.message || 'Không thể cập nhật công việc'
+      )
     },
   })
 }
@@ -81,14 +87,19 @@ export function useDeleteTask() {
     onSuccess: (_, taskId) => {
       // Remove task from cache
       queryClient.removeQueries({ queryKey: [TASKS_QUERY_KEY, taskId] })
+      // Cancel and clear detail-panel requests that may still be in flight
+      // while the task is being removed from the board.
+      queryClient.cancelQueries({ queryKey: [TASKS_QUERY_KEY, 'diff', taskId] })
+      queryClient.removeQueries({ queryKey: [TASKS_QUERY_KEY, 'diff', taskId] })
+      queryClient.removeQueries({ queryKey: ['pull-request-by-task', taskId] })
 
       // Invalidate all tasks queries
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] })
 
-      toast.success('Task deleted successfully')
+      toast.success('Đã xoá công việc thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete task')
+      toast.error(error.response?.data?.message || 'Không thể xoá công việc')
     },
   })
 }
@@ -133,10 +144,12 @@ export function useDuplicateTask() {
       queryClient.invalidateQueries({
         queryKey: [TASKS_QUERY_KEY, newTask.project_id],
       })
-      toast.success('Task duplicated successfully')
+      toast.success('Đã nhân bản công việc thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to duplicate task')
+      toast.error(
+        error.response?.data?.message || 'Không thể nhân bản công việc'
+      )
     },
   })
 }
@@ -176,18 +189,22 @@ export function useStartPlanning() {
       return { previousTasks }
     },
     onSuccess: (response) => {
-      toast.success(`Planning started successfully. Job ID: ${response.job_id}`)
+      toast.success(`Đã bắt đầu lập kế hoạch. Job ID: ${response.job_id}`)
     },
     onError: (error: any, context: any) => {
       // Revert optimistic update on error
       if (context?.previousTasks) {
         queryClient.setQueryData([TASKS_QUERY_KEY], context.previousTasks)
       }
-      toast.error(error.response?.data?.message || 'Failed to start planning')
+      toast.error(
+        error.response?.data?.message || 'Không thể bắt đầu lập kế hoạch'
+      )
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'plans', variables.taskId] })
+      queryClient.invalidateQueries({ queryKey: ['executions', 'task', variables.taskId] })
     },
   })
 }
@@ -228,7 +245,7 @@ export function useApprovePlan() {
     },
     onSuccess: (response) => {
       toast.success(
-        `Plan approved! Implementation job enqueued. Job ID: ${response.job_id}`
+        `Đã duyệt kế hoạch và xếp hàng triển khai. Job ID: ${response.job_id}`
       )
     },
     onError: (error: any, context: any) => {
@@ -236,7 +253,7 @@ export function useApprovePlan() {
       if (context?.previousTasks) {
         queryClient.setQueryData([TASKS_QUERY_KEY], context.previousTasks)
       }
-      toast.error(error.response?.data?.message || 'Failed to approve plan')
+      toast.error(error.response?.data?.message || 'Không thể duyệt kế hoạch')
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -254,11 +271,7 @@ export function useStartImplementingDirect() {
       request,
     }: {
       taskId: string
-      request: {
-        branch_name: string
-        ai_type: string
-        use_remote_branch?: boolean
-      }
+      request: StartImplementingDirectRequest
     }) => tasksApi.startImplementingDirect(taskId, request),
     onMutate: async ({ taskId }) => {
       await queryClient.cancelQueries({ queryKey: [TASKS_QUERY_KEY] })
@@ -279,14 +292,15 @@ export function useStartImplementingDirect() {
       return { previousTasks }
     },
     onSuccess: (response) => {
-      toast.success(`Implementation started. Job ID: ${response.job_id}`)
+      toast.success(`Đã bắt đầu triển khai. Job ID: ${response.job_id}`)
     },
     onError: (error: any, _variables, context: any) => {
       if (context?.previousTasks) {
         queryClient.setQueryData([TASKS_QUERY_KEY], context.previousTasks)
       }
       toast.error(
-        error.response?.data?.message || 'Failed to start implementing directly'
+        error.response?.data?.message ||
+          'Không thể bắt đầu triển khai trực tiếp'
       )
     },
     onSettled: () => {
@@ -336,7 +350,7 @@ export function useChangeTaskStatus() {
         queryKey: [TASKS_QUERY_KEY, updatedTask.project_id],
       })
 
-      toast.success('Task status updated successfully')
+      toast.success('Đã cập nhật trạng thái công việc thành công')
     },
     onError: (error: any, _variables, context: any) => {
       // Revert optimistic update on error
@@ -344,7 +358,8 @@ export function useChangeTaskStatus() {
         queryClient.setQueryData([TASKS_QUERY_KEY], context.previousTasks)
       }
       toast.error(
-        error.response?.data?.message || 'Failed to update task status'
+        error.response?.data?.message ||
+          'Không thể cập nhật trạng thái công việc'
       )
     },
     onSettled: () => {
@@ -380,11 +395,38 @@ export function useUpdatePlan() {
       queryClient.invalidateQueries({
         queryKey: [TASKS_QUERY_KEY, 'plans', taskId],
       })
-      toast.success('Plan updated successfully')
+      toast.success('Đã cập nhật kế hoạch thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update plan')
+      toast.error(
+        error.response?.data?.message || 'Không thể cập nhật kế hoạch'
+      )
     },
+  })
+}
+
+export function useRevisePlan() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      planId,
+      feedback,
+    }: {
+      taskId: string
+      planId: string
+      feedback: string
+    }) => tasksApi.revisePlan(taskId, planId, feedback),
+    onSuccess: (_, { taskId }) => {
+      queryClient.invalidateQueries({
+        queryKey: [TASKS_QUERY_KEY, 'plans', taskId],
+      })
+      toast.success('Đã gửi yêu cầu AI chỉnh kế hoạch')
+    },
+    onError: (error: any) =>
+      toast.error(
+        error.response?.data?.message || 'Không thể yêu cầu AI chỉnh kế hoạch'
+      ),
   })
 }
 
@@ -395,10 +437,10 @@ export function useCreateWorktree(projectId: string) {
     mutationFn: worktreesApi.createWorktree,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY, projectId] })
-      toast.success('Worktree creation started')
+      toast.success('Đã bắt đầu tạo Worktree')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create worktree')
+      toast.error(error.response?.data?.message || 'Không thể tạo Worktree')
     },
   })
 }

@@ -5,6 +5,7 @@ export const API_CONFIG = {
 } as const
 
 export const API_ENDPOINTS = {
+  AI_EXECUTOR_MODELS: '/ai-executors/models',
   PROJECTS: '/projects',
   TASKS: '/tasks',
   EXECUTIONS: '/executions',

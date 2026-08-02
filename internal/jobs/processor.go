@@ -208,7 +208,7 @@ func (p *Processor) ProcessTaskPlanning(ctx context.Context, task *asynq.Task) e
 		return fmt.Errorf("failed to get task: %w", err)
 	}
 
-	aiExecutor, err := p.getAiExecutor(payload.AIType)
+	aiExecutor, err := p.getAiExecutor(payload.AIType, payload.Model, payload.ReasoningEffort)
 	if err != nil {
 		p.logger.Error("Failed to get AI executor", "task_id", payload.TaskID, "error", err)
 		return fmt.Errorf("failed to get AI executor: %w", err)
@@ -222,11 +222,16 @@ func (p *Processor) ProcessTaskPlanning(ctx context.Context, task *asynq.Task) e
 
 	// map execution to entity.Execution
 	dbExecution := &entity.Execution{
-		TaskID:    payload.TaskID,
-		Status:    entity.ExecutionStatus(execution.Status),
-		StartedAt: execution.StartedAt,
-		Progress:  execution.Progress,
-		Result:    nil,
+		TaskID:          payload.TaskID,
+		AIType:          payload.AIType,
+		Model:           payload.Model,
+		ReasoningEffort: payload.ReasoningEffort,
+		Status:          entity.ExecutionStatus(execution.Status),
+		StartedAt:       execution.StartedAt,
+		Progress:        execution.Progress,
+		Result:          nil,
+		ExecutionType:   entity.ExecutionTypePlanning,
+		ContextMode:     "fresh",
 	}
 
 	err = p.executionRepo.Create(ctx, dbExecution)
@@ -260,24 +265,47 @@ func (p *Processor) ProcessTaskPlanning(ctx context.Context, task *asynq.Task) e
 					}
 				} else {
 					p.logger.Info("AI Planning execution completed successfully", "task_id", payload.TaskID, "execution_id", execution.ID)
-					_ = p.updateTaskStatus(backgroundCtx, payload.TaskID, entity.TaskStatusPLANREVIEWING)
-					err := p.executionRepo.MarkCompleted(backgroundCtx, dbExecution.ID, completedAt, nil)
-					if err != nil {
-						p.logger.Error("Failed to mark execution as completed", "error", err, "execution_id", dbExecution.ID)
-					}
 					result := execution.Result
-					p.logger.Info("AI Planning execution result", "task_id", payload.TaskID, "execution_id", execution.ID, "result", result)
-					if result != nil {
-						planContent, err := aiExecutor.ParseOutputToPlan(result.Output)
-						if err != nil {
-							p.logger.Error("Failed to parse output to plan", "error", err, "execution_id", dbExecution.ID)
+					if result == nil {
+						execution.Error = "planning completed without a result"
+					} else {
+						p.logger.Info("AI Planning execution result", "task_id", payload.TaskID, "execution_id", execution.ID, "result", result)
+						planContent, parseErr := aiExecutor.ParseOutputToPlan(result.Output)
+						if parseErr != nil {
+							execution.Error = fmt.Sprintf("failed to parse planning output: %s", parseErr)
+						} else if sessionID := aiexecutors.ParseSessionID(result.Output); sessionID != "" {
+							dbExecution.SessionID = &sessionID
+							if updateErr := p.executionRepo.Update(backgroundCtx, dbExecution); updateErr != nil {
+								p.logger.Warn("failed to save planning session id", "error", updateErr)
+							}
+							if saveErr := p.savePlanAndUpdateStatusWithExecution(backgroundCtx, payload.TaskID, planContent, dbExecution.ID); saveErr != nil {
+								execution.Error = fmt.Sprintf("failed to save plan: %s", saveErr)
+							}
+						} else if saveErr := p.savePlanAndUpdateStatusWithExecution(backgroundCtx, payload.TaskID, planContent, dbExecution.ID); saveErr != nil {
+							execution.Error = fmt.Sprintf("failed to save plan: %s", saveErr)
 						}
-						err = p.savePlanAndUpdateStatus(backgroundCtx, payload.TaskID, planContent)
-						if err != nil {
-							p.logger.Error("Failed to save plan", "error", err, "execution_id", dbExecution.ID)
-						} else if payload.AutoImplement {
+					}
+
+					if execution.Error != "" {
+						p.logger.Error("AI planning result is invalid", "error", execution.Error, "execution_id", dbExecution.ID)
+						_ = p.updateTaskStatus(backgroundCtx, payload.TaskID, entity.TaskStatusTODO)
+						_ = p.taskUsecase.AppendErrorLog(backgroundCtx, payload.TaskID, fmt.Sprintf("Planning failed: %s", execution.Error))
+						if err := p.executionRepo.MarkFailed(backgroundCtx, dbExecution.ID, completedAt, execution.Error); err != nil {
+							p.logger.Error("Failed to mark execution as failed", "error", err, "execution_id", dbExecution.ID)
+						}
+					} else {
+						if err := p.executionRepo.MarkCompleted(backgroundCtx, dbExecution.ID, completedAt, nil); err != nil {
+							p.logger.Error("Failed to mark execution as completed", "error", err, "execution_id", dbExecution.ID)
+						}
+						if payload.AutoImplement {
 							p.logger.Info("Auto-implement enabled, enqueuing implementation job", "task_id", payload.TaskID)
-							_, err := p.taskUsecase.ApprovePlan(backgroundCtx, payload.TaskID, payload.AIType)
+							// Auto-implementation is an internal legacy flow; the latest plan is selected explicitly.
+							plans, listErr := p.taskUsecase.GetPlansByTaskID(backgroundCtx, payload.TaskID)
+							var planID uuid.UUID
+							if listErr == nil && len(plans) > 0 {
+								planID = plans[0].ID
+							}
+							_, err := p.taskUsecase.ApprovePlan(backgroundCtx, payload.TaskID, planID, payload.AIType, payload.Model, payload.ReasoningEffort)
 							if err != nil {
 								p.logger.Error("Failed to auto-enqueue implementation job", "error", err, "task_id", payload.TaskID)
 							}
@@ -298,7 +326,10 @@ func (p *Processor) ProcessTaskPlanning(ctx context.Context, task *asynq.Task) e
 					p.logger.Error("Failed to insert or update logs", "error", err, "execution_id", dbExecution.ID)
 				}
 			case stderr := <-stderrChannel:
-				p.logger.Error("AI Planning execution stderr", "task_id", payload.TaskID, "execution_id", execution.ID, "stderr", stderr)
+				// CLI banners and progress diagnostics are commonly written to stderr
+				// even when the process succeeds. The completion branch below logs an
+				// ERROR only when the execution has actually failed.
+				p.logger.Info("AI Planning execution stderr", "task_id", payload.TaskID, "execution_id", execution.ID, "stderr", stderr)
 			}
 		}
 	}()
@@ -312,10 +343,165 @@ func (p *Processor) ProcessTaskPlanning(ctx context.Context, task *asynq.Task) e
 	return nil
 }
 
-func (p *Processor) getAiExecutor(aiType string) (ai.AiCodingCli, error) {
+// ProcessTaskPlanRevision regenerates a plan while leaving the task in review.
+func (p *Processor) ProcessTaskPlanRevision(ctx context.Context, task *asynq.Task) error {
+	payload, err := ParseTaskPlanRevisionPayload(task)
+	if err != nil {
+		return err
+	}
+	current, err := p.taskUsecase.GetByID(ctx, payload.TaskID)
+	if err != nil {
+		return err
+	}
+	if current.Status != entity.TaskStatusPLANREVIEWING {
+		return fmt.Errorf("task must be in PLAN_REVIEWING status")
+	}
+	plans, err := p.taskUsecase.GetPlansByTaskID(ctx, payload.TaskID)
+	if err != nil {
+		return err
+	}
+	var base *entity.Plan
+	for i := range plans {
+		if plans[i].ID == payload.PlanID {
+			base = &plans[i]
+			break
+		}
+	}
+	if base == nil {
+		return fmt.Errorf("plan not found")
+	}
+	var history strings.Builder
+	for i := len(plans) - 1; i >= 0; i-- {
+		if strings.TrimSpace(plans[i].RevisionFeedback) != "" {
+			fmt.Fprintf(&history, "- %s\n", plans[i].RevisionFeedback)
+		}
+	}
+	current.RevisionPrompt = fmt.Sprintf("Revise the implementation plan below. Return only the new plan as Markdown and keep all delivery metadata updated.\n\nAt the top include:\n## Plan Metadata\n- Branch Name: feature/<short-kebab-case-description>\n- Commit Message: <one-line imperative English commit message>\n- Pull Request Title: <concise English title>\nThen include ## Implementation Plan.\n\nTask title: %s\nTask description: %s\n\nCurrent plan:\n%s\n\nPrevious feedback:\n%s\nLatest feedback:\n%s", current.Title, current.Description, base.Content, history.String(), payload.Feedback)
+	executor, err := p.getAiExecutor(payload.AIType, payload.Model, payload.ReasoningEffort)
+	if err != nil {
+		return err
+	}
+	if current.WorktreePath == nil {
+		return fmt.Errorf("worktree path is not set")
+	}
+	var sourceExecution *entity.Execution
+	if base.ExecutionID != nil {
+		sourceExecution, _ = p.executionRepo.GetByID(ctx, *base.ExecutionID)
+	}
+	if sourceExecution == nil && base.RevisionExecutionID != nil {
+		sourceExecution, _ = p.executionRepo.GetByID(ctx, *base.RevisionExecutionID)
+	}
+	var sessionID string
+	if sourceExecution != nil && sourceExecution.SessionID != nil {
+		sessionID = *sourceExecution.SessionID
+	}
+	if _, ok := executor.(ai.SessionResumableAiCodingCli); !ok {
+		sessionID = ""
+	}
+	execution, env, err := p.executionService.StartExecutionWithSession(current, executor, true, sessionID)
+	if err != nil {
+		return err
+	}
+	mode := "fresh"
+	if sessionID != "" {
+		if _, ok := executor.(ai.SessionResumableAiCodingCli); ok {
+			mode = "resumed"
+		}
+	}
+	dbExecution := &entity.Execution{TaskID: payload.TaskID, AIType: payload.AIType, Model: payload.Model, ReasoningEffort: payload.ReasoningEffort, ExecutionType: entity.ExecutionTypePlanRevision, Status: entity.ExecutionStatus(execution.Status), StartedAt: execution.StartedAt, Progress: execution.Progress, ContextMode: mode}
+	if sessionID != "" {
+		dbExecution.SessionID = &sessionID
+	}
+	if err := p.executionRepo.Create(ctx, dbExecution); err != nil {
+		return err
+	}
+	p.publishRevisionEvent("plan_revision_execution_created", dbExecution, current.ProjectID)
+	out, stderr := make(chan string), make(chan string)
+	execution.RegisterStdoutChannel(out)
+	execution.RegisterStderrChannel(stderr)
+	p.executionService.RunExecution(execution, env)
+	go func() {
+		for {
+			select {
+			case <-execution.GetContextDoneChannel():
+				bg := context.Background()
+				if execution.Error != "" {
+					// A persisted CLI session can expire or disappear after a worker
+					// restart. Retry exactly once with the complete prompt context.
+					if sessionID != "" {
+						freshExecution, freshEnv, freshErr := p.executionService.StartExecutionWithSession(current, executor, true, "")
+						if freshErr == nil {
+							sessionID = ""
+							dbExecution.ContextMode = "fresh"
+							dbExecution.SessionID = nil
+							_ = p.executionRepo.Update(bg, dbExecution)
+							execution = freshExecution
+							execution.RegisterStdoutChannel(out)
+							execution.RegisterStderrChannel(stderr)
+							p.executionService.RunExecution(execution, freshEnv)
+							continue
+						}
+						p.logger.Warn("resumed plan revision failed; fresh retry could not start", "error", freshErr)
+					}
+					_ = p.executionRepo.MarkFailed(bg, dbExecution.ID, time.Now(), execution.Error)
+					p.publishRevisionEvent("plan_revision_failed", map[string]interface{}{"task_id": payload.TaskID, "execution_id": dbExecution.ID, "error": execution.Error}, current.ProjectID)
+					return
+				}
+				if execution.Result == nil {
+					_ = p.executionRepo.MarkFailed(bg, dbExecution.ID, time.Now(), "revision completed without a result")
+					return
+				}
+				content, parseErr := executor.ParseOutputToPlan(execution.Result.Output)
+				if parseErr != nil {
+					_ = p.executionRepo.MarkFailed(bg, dbExecution.ID, time.Now(), parseErr.Error())
+					return
+				}
+				metadata, cleanContent := aiexecutors.ExtractPlanMetadata(content)
+				plan := &entity.Plan{TaskID: payload.TaskID, Status: entity.PlanStatusREVIEWING, Content: cleanContent, BranchName: metadata.BranchName, CommitMessage: metadata.CommitMessage, PRTitle: metadata.PRTitle, RevisionOfPlanID: &base.ID, RevisionFeedback: payload.Feedback, RevisionExecutionID: &dbExecution.ID, ExecutionID: &dbExecution.ID}
+				if newSessionID := aiexecutors.ParseSessionID(execution.Result.Output); newSessionID != "" {
+					dbExecution.SessionID = &newSessionID
+					_ = p.executionRepo.Update(bg, dbExecution)
+				}
+				if err := p.planRepo.Create(bg, plan); err != nil {
+					_ = p.executionRepo.MarkFailed(bg, dbExecution.ID, time.Now(), err.Error())
+					return
+				}
+				_ = p.executionRepo.MarkCompleted(bg, dbExecution.ID, time.Now(), nil)
+				p.publishRevisionEvent("plan_revision_completed", plan, current.ProjectID)
+				return
+			case <-out:
+			case <-stderr:
+			}
+		}
+	}()
+	return nil
+}
+
+func (p *Processor) publishRevisionEvent(eventType string, data interface{}, projectID uuid.UUID) {
+	if p.redisBroker != nil {
+		if err := p.redisBroker.PublishWebSocketMessage(eventType, data, projectID); err == nil {
+			return
+		} else {
+			p.logger.Warn("failed to publish revision event through Redis", "event", eventType, "error", err)
+		}
+	}
+	if p.wsService != nil {
+		_ = p.wsService.BroadcastMessage(websocket.MessageType(eventType), data, &projectID, nil)
+	}
+}
+
+func (p *Processor) getAiExecutor(aiType string, settings ...string) (ai.AiCodingCli, error) {
+	model := ""
+	reasoningEffort := ""
+	if len(settings) > 0 {
+		model = settings[0]
+	}
+	if len(settings) > 1 {
+		reasoningEffort = settings[1]
+	}
 	switch aiType {
 	case "claude-code":
-		aiExecutor := aiexecutors.NewClaudeCodeExecutor()
+		aiExecutor := aiexecutors.NewClaudeCodeExecutor(model, reasoningEffort)
 		return aiExecutor, nil
 	case "fake-code":
 		aiExecutor := aiexecutors.NewFakeCodeExecutor()
@@ -325,6 +511,9 @@ func (p *Processor) getAiExecutor(aiType string) (ai.AiCodingCli, error) {
 		return aiExecutor, nil
 	case "deep-seek":
 		aiExecutor := aiexecutors.NewDeepSeekExecutor()
+		return aiExecutor, nil
+	case "codex":
+		aiExecutor := aiexecutors.NewCodexExecutor(model, reasoningEffort)
 		return aiExecutor, nil
 	default:
 		return nil, fmt.Errorf("invalid execution type: %s", aiType)
@@ -433,17 +622,51 @@ func (p *Processor) ProcessTaskImplementation(ctx context.Context, task *asynq.T
 	}
 
 	// Step 4: Get the plan if available (plan is optional for direct implementation)
-	plan, err := p.planRepo.GetByTaskID(ctx, payload.TaskID)
+	var plan *entity.Plan
+	if payload.PlanID != nil && *payload.PlanID != uuid.Nil {
+		plan, err = p.planRepo.GetByID(ctx, *payload.PlanID)
+		if err == nil && plan.TaskID != payload.TaskID {
+			err = fmt.Errorf("selected plan does not belong to task")
+		}
+	} else {
+		// Legacy/direct jobs have no plan_id and retain the old fallback behavior.
+		plan, err = p.planRepo.GetByTaskID(ctx, payload.TaskID)
+	}
 	if err == nil && plan != nil &&
-		(plan.Status == entity.PlanStatusAPPROVED || plan.Status == entity.PlanStatusREVIEWING) {
+		(plan.Status == entity.PlanStatusAPPROVED || (payload.PlanID == nil && plan.Status == entity.PlanStatusREVIEWING)) {
 		projectTask.Plans = []entity.Plan{*plan}
+		if strings.TrimSpace(plan.BranchName) != "" && projectTask.BranchName != nil && *projectTask.BranchName != plan.BranchName {
+			if err := p.worktreeUsecase.RenameBranchForTask(ctx, payload.TaskID, plan.BranchName); err != nil {
+				_ = p.updateTaskStatus(ctx, payload.TaskID, fallbackStatus)
+				return fmt.Errorf("failed to apply plan branch name: %w", err)
+			}
+			// RenameBranchForTask may choose feature/foo-v2 when the AI-selected
+			// branch already exists. Reload the task, then persist that actual
+			// branch back to the approved plan so all later retries use the same
+			// name.
+			updatedTask, reloadErr := p.taskUsecase.GetByID(ctx, payload.TaskID)
+			if reloadErr != nil || updatedTask.BranchName == nil {
+				if reloadErr == nil {
+					reloadErr = fmt.Errorf("task branch name is empty after rename")
+				}
+				_ = p.updateTaskStatus(ctx, payload.TaskID, fallbackStatus)
+				return fmt.Errorf("failed to reload applied plan branch: %w", reloadErr)
+			}
+			plan.BranchName = *updatedTask.BranchName
+			if err := p.planRepo.Update(ctx, plan); err != nil {
+				_ = p.updateTaskStatus(ctx, payload.TaskID, fallbackStatus)
+				return fmt.Errorf("failed to persist applied plan branch: %w", err)
+			}
+			projectTask = updatedTask
+			projectTask.Plans = []entity.Plan{*plan}
+		}
 		p.logger.Info("Plan found and attached to task", "task_id", payload.TaskID, "plan_id", plan.ID)
 	} else {
 		p.logger.Info("No approved plan found, implementing directly from task description", "task_id", payload.TaskID)
 	}
 
 	// Step 6: Start AI execution using executionService.StartExecution()
-	aiExecutor, err := p.getAiExecutor(payload.AIType)
+	aiExecutor, err := p.getAiExecutor(payload.AIType, payload.Model, payload.ReasoningEffort)
 	if err != nil {
 		p.logger.Error("Failed to get AI executor", "task_id", payload.TaskID, "error", err)
 		return fmt.Errorf("failed to get AI executor: %w", err)
@@ -457,11 +680,15 @@ func (p *Processor) ProcessTaskImplementation(ctx context.Context, task *asynq.T
 
 	// Map AI execution to entity.Execution and save to database
 	dbExecution := &entity.Execution{
-		TaskID:    payload.TaskID,
-		Status:    entity.ExecutionStatus(execution.Status),
-		StartedAt: execution.StartedAt,
-		Progress:  execution.Progress,
-		Result:    nil,
+		TaskID:          payload.TaskID,
+		AIType:          payload.AIType,
+		Model:           payload.Model,
+		ReasoningEffort: payload.ReasoningEffort,
+		Status:          entity.ExecutionStatus(execution.Status),
+		StartedAt:       execution.StartedAt,
+		Progress:        execution.Progress,
+		Result:          nil,
+		ExecutionType:   entity.ExecutionTypeImplementation,
 	}
 
 	err = p.executionRepo.Create(ctx, dbExecution)
@@ -562,7 +789,10 @@ func (p *Processor) ProcessTaskImplementation(ctx context.Context, task *asynq.T
 					p.logger.Error("Failed to insert or update logs", "error", err, "execution_id", dbExecution.ID)
 				}
 			case stderr := <-stderrChannel:
-				p.logger.Error("AI execution stderr", "task_id", payload.TaskID, "execution_id", execution.ID, "stderr", stderr)
+				// stderr is not synonymous with failure for AI CLIs. Codex, for
+				// example, writes its startup banner there. Failure is logged when
+				// execution.Error is set after process completion.
+				p.logger.Info("AI execution stderr", "task_id", payload.TaskID, "execution_id", execution.ID, "stderr", stderr)
 				// Save stderr to execution database
 				// stderrLog := &entity.ExecutionLog{
 				// 	ExecutionID: dbExecution.ID,
@@ -750,13 +980,24 @@ func (p *Processor) cleanupWorktree(ctx context.Context, worktreePath string) er
 
 // savePlanAndUpdateStatus saves the generated plan and updates task status
 func (p *Processor) savePlanAndUpdateStatus(ctx context.Context, taskID uuid.UUID, planContent string) error {
+	return p.savePlanAndUpdateStatusWithExecution(ctx, taskID, planContent, uuid.Nil)
+}
+
+func (p *Processor) savePlanAndUpdateStatusWithExecution(ctx context.Context, taskID uuid.UUID, planContent string, executionID uuid.UUID) error {
 	p.logger.Info("Saving plan and updating task status", "task_id", taskID)
+	metadata, cleanContent := aiexecutors.ExtractPlanMetadata(planContent)
 
 	// Create a new Plan entity
 	plan := &entity.Plan{
-		TaskID:  taskID,
-		Status:  entity.PlanStatusDRAFT,
-		Content: planContent,
+		TaskID:        taskID,
+		Status:        entity.PlanStatusDRAFT,
+		Content:       cleanContent,
+		BranchName:    metadata.BranchName,
+		CommitMessage: metadata.CommitMessage,
+		PRTitle:       metadata.PRTitle,
+	}
+	if executionID != uuid.Nil {
+		plan.ExecutionID = &executionID
 	}
 
 	// Save the plan to the database
@@ -807,10 +1048,17 @@ func (p *Processor) executePRCreationWorkflow(ctx context.Context, projectTask *
 
 	// Step 3: Commit and push changes if any exist
 	if hasPendingChanges {
-		commitMessage := fmt.Sprintf("Implement task: %s\n\nTask ID: %s\nAI Implementation completed via Auto-Devs\n\n- %s",
-			projectTask.Title,
-			projectTask.ID.String(),
-			projectTask.Description)
+		commitTitle := ""
+		if plan != nil {
+			commitTitle = strings.TrimSpace(plan.CommitMessage)
+		}
+		if commitTitle == "" {
+			commitTitle = github.EnglishTaskTitle(projectTask.Title)
+		}
+		if strings.TrimSpace(commitTitle) == "" {
+			commitTitle = fmt.Sprintf("Implement task %s", projectTask.ID.String()[:8])
+		}
+		commitMessage := commitTitle
 
 		err = p.gitManager.CommitAndPush(ctx, *projectTask.WorktreePath, commitMessage, "origin", *projectTask.BranchName)
 		if err != nil {

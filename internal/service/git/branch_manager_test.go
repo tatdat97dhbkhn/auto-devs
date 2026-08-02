@@ -7,11 +7,11 @@ import (
 func TestBranchNamingConfig(t *testing.T) {
 	// Test default configuration
 	config := DefaultBranchNamingConfig()
-	if config.Prefix != "task" {
-		t.Errorf("Expected prefix 'task', got '%s'", config.Prefix)
+	if config.Prefix != "feature/" {
+		t.Errorf("Expected prefix 'feature/', got '%s'", config.Prefix)
 	}
-	if !config.IncludeID {
-		t.Error("Expected IncludeID to be true")
+	if config.IncludeID {
+		t.Error("Expected IncludeID to be false")
 	}
 	if config.Separator != "-" {
 		t.Errorf("Expected separator '-', got '%s'", config.Separator)
@@ -44,7 +44,7 @@ func TestBranchManager_GenerateBranchName(t *testing.T) {
 			taskID:   "123",
 			title:    "Implement user authentication",
 			config:   DefaultBranchNamingConfig(),
-			expected: "task-123-implement-user-authentication",
+			expected: "feature/implement-user-authentication",
 			hasError: false,
 		},
 		{
@@ -60,7 +60,7 @@ func TestBranchManager_GenerateBranchName(t *testing.T) {
 			taskID:   "456",
 			title:    "Add API endpoint for user@example.com",
 			config:   DefaultBranchNamingConfig(),
-			expected: "task-456-add-api-endpoint-for-user-example-com",
+			expected: "feature/add-api-endpoint-for-user-example-com",
 			hasError: false,
 		},
 		{
@@ -68,7 +68,7 @@ func TestBranchManager_GenerateBranchName(t *testing.T) {
 			taskID:   "789",
 			title:    "Update_database_schema",
 			config:   DefaultBranchNamingConfig(),
-			expected: "task-789-update-database-schema",
+			expected: "feature/update-database-schema",
 			hasError: false,
 		},
 		{
@@ -76,7 +76,7 @@ func TestBranchManager_GenerateBranchName(t *testing.T) {
 			taskID:   "999",
 			title:    "",
 			config:   DefaultBranchNamingConfig(),
-			expected: "task-999",
+			expected: "feature",
 			hasError: false,
 		},
 		{
@@ -84,7 +84,7 @@ func TestBranchManager_GenerateBranchName(t *testing.T) {
 			taskID:   "100",
 			title:    "This is a very long title that should be truncated to fit within the maximum branch name length limit",
 			config:   DefaultBranchNamingConfig(),
-			expected: "task-100-this-is-a-very-long-title-that-should-be",
+			expected: "feature/this-is-a-very-long-title-that-should-be",
 			hasError: false,
 		},
 	}
@@ -347,8 +347,8 @@ func TestBranchManager_Integration(t *testing.T) {
 		t.Errorf("Failed to generate branch name: %v", err)
 	}
 
-	if branchName != "task-123-test-task" {
-		t.Errorf("Expected 'task-123-test-task', got '%s'", branchName)
+	if branchName != "feature/test-task" {
+		t.Errorf("Expected 'feature/test-task', got '%s'", branchName)
 	}
 
 	// Test validation

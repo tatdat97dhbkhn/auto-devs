@@ -29,6 +29,9 @@ func (e *FakeCodeExecutor) GetPlanningCommand(ctx context.Context, task *entity.
 	if err != nil {
 		return "", "", nil, err
 	}
+	if task.RevisionPrompt != "" {
+		prompt = task.RevisionPrompt
+	}
 	return command, prompt, nil, nil
 }
 
@@ -159,6 +162,7 @@ func (e *FakeCodeExecutor) generatePlanningPrompt(task entity.Task) (string, err
 
 	promptBuilder.WriteString("## Output Format\n")
 	promptBuilder.WriteString("Please provide the plan as structured markdown with clear sections and actionable steps.\n")
+	promptBuilder.WriteString("At the top, include a ## Plan Metadata section with Branch Name, Commit Message, and Pull Request Title. Use clear English values; the commit message must be one imperative line and the branch must be short kebab-case under feature/.\n")
 	promptBuilder.WriteString("Each step should be specific, measurable, and include estimated time if possible.\n")
 	promptBuilder.WriteString("Include any assumptions, dependencies, or potential risks.\n\n")
 

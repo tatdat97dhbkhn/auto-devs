@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import type { Task } from '@/types/task'
 import { ExternalLink } from 'lucide-react'
 import { Diff, parseDiff, Hunk } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import { getStatusColor, getStatusTitle } from '@/lib/kanban'
+import { useWebSocketContext } from '@/context/websocket-context'
 import { useTaskExecutions } from '@/hooks/use-executions'
 import {
   usePullRequestByTask,
@@ -36,10 +38,35 @@ interface TaskDetailSheetProps {
   onDelete?: (taskId: string) => void
   onDuplicate?: (task: Task) => void
   onStatusChange?: (taskId: string, newStatus: Task['status']) => void
-  onStartPlanning?: (taskId: string, branchName: string, aiType: string, autoImplement: boolean, useRemoteBranch: boolean) => void
-  onApprovePlanAndStartImplement?: (taskId: string, aiType: string) => void
-  onImplementDirect?: (taskId: string, branchName: string, aiType: string, useRemoteBranch: boolean) => void
-  onCreateWorktree?: (taskId: string, branchName: string, useRemoteBranch: boolean) => void
+  onStartPlanning?: (
+    taskId: string,
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    autoImplement: boolean,
+    useRemoteBranch: boolean
+  ) => void
+  onApprovePlanAndStartImplement?: (
+    taskId: string,
+    planId: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string
+  ) => void
+  onImplementDirect?: (
+    taskId: string,
+    branchName: string,
+    aiType: string,
+    model: string,
+    reasoningEffort: string,
+    useRemoteBranch: boolean
+  ) => void
+  onCreateWorktree?: (
+    taskId: string,
+    branchName: string,
+    useRemoteBranch: boolean
+  ) => void
 }
 
 export function TaskDetailSheet({
@@ -58,6 +85,17 @@ export function TaskDetailSheet({
   const navigate = useNavigate()
   const params = useParams({ strict: false }) as { projectId?: string }
   const [showHistory, setShowHistory] = useState(false)
+  const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>()
+  const [selectedPlanInfo, setSelectedPlanInfo] = useState<{
+    version: number
+    status: string
+    createdAt: string
+    revisionFeedback?: string
+  }>()
+  useEffect(() => {
+    setSelectedPlanId(undefined)
+    setSelectedPlanInfo(undefined)
+  }, [task?.id])
 
   // Handle sheet close and URL cleanup
   const handleOpenChange = (isOpen: boolean) => {
@@ -111,7 +149,7 @@ export function TaskDetailSheet({
           <div className='space-y-6 px-4 pb-6'>
             {/* Status Actions */}
             <div>
-              <h4 className='mb-3 text-sm font-medium'>Actions</h4>
+              <h4 className='mb-3 text-sm font-medium'>Thao tác</h4>
               <TaskActions
                 task={task}
                 onEdit={handleEdit}
@@ -119,6 +157,8 @@ export function TaskDetailSheet({
                 onDuplicate={handleDuplicate}
                 onStartPlanning={onStartPlanning}
                 onApprovePlanAndStartImplement={onApprovePlanAndStartImplement}
+                selectedPlanId={selectedPlanId}
+                selectedPlanInfo={selectedPlanInfo}
                 onImplementDirect={onImplementDirect}
                 onCreateWorktree={onCreateWorktree}
                 onChangeStatus={
@@ -136,18 +176,27 @@ export function TaskDetailSheet({
             {/* Tabs for Plan Review, Code Changes, Executions, and Metadata */}
             <Tabs defaultValue='executions' className='w-full'>
               <TabsList className='grid w-full grid-cols-4'>
-                <TabsTrigger value='executions'>Executions</TabsTrigger>
-                <TabsTrigger value='plan-review'>Plan Review</TabsTrigger>
-                <TabsTrigger value='code-changes'>Code Changes</TabsTrigger>
-                <TabsTrigger value='metadata'>Metadata</TabsTrigger>
+                <TabsTrigger value='executions'>Lần thực thi</TabsTrigger>
+                <TabsTrigger value='plan-review'>Duyệt kế hoạch</TabsTrigger>
+                <TabsTrigger value='code-changes'>
+                  Thay đổi mã nguồn
+                </TabsTrigger>
+                <TabsTrigger value='metadata'>Thông tin bổ sung</TabsTrigger>
               </TabsList>
 
               <TabsContent value='plan-review' className='mt-4'>
-                <PlanReview task={task} />
+                <PlanReview
+                  task={task}
+                  selectedPlanId={selectedPlanId}
+                  onPlanSelect={(planId, info) => {
+                    setSelectedPlanId(planId)
+                    setSelectedPlanInfo(info)
+                  }}
+                />
               </TabsContent>
 
               <TabsContent value='code-changes' className='mt-4'>
-                <CodeChanges taskId={task.id} />
+                <CodeChanges taskId={task.id} taskStatus={task.status} />
               </TabsContent>
 
               <TabsContent value='executions' className='mt-4'>
@@ -181,6 +230,8 @@ export function TaskDetailSheet({
 
 // TaskExecutions component for the executions tab
 function TaskExecutions({ taskId }: { taskId: string }) {
+  const queryClient = useQueryClient()
+  const { subscribe, unsubscribe } = useWebSocketContext()
   const {
     data: executionsData,
     isLoading,
@@ -194,6 +245,23 @@ function TaskExecutions({ taskId }: { taskId: string }) {
   })
 
   const executions = executionsData?.data || []
+
+  const handleTaskUpdated = useCallback(
+    (message: { data?: { task_id?: string; task?: { id?: string } } }) => {
+      const updatedTaskId = message.data?.task_id || message.data?.task?.id
+      if (updatedTaskId !== taskId) return
+
+      queryClient.invalidateQueries({
+        queryKey: ['executions', 'task', taskId],
+      })
+    },
+    [queryClient, taskId]
+  )
+
+  useEffect(() => {
+    subscribe('task_updated', handleTaskUpdated)
+    return () => unsubscribe('task_updated', handleTaskUpdated)
+  }, [subscribe, unsubscribe, handleTaskUpdated])
 
   return (
     <>
@@ -224,7 +292,15 @@ function parseDiffString(diffString: string) {
 }
 
 // CodeChanges component for the code changes tab
-function CodeChanges({ taskId }: { taskId: string }) {
+function CodeChanges({
+  taskId,
+  taskStatus,
+}: {
+  taskId: string
+  taskStatus: Task['status']
+}) {
+  const queryClient = useQueryClient()
+  const { subscribe, unsubscribe } = useWebSocketContext()
   const { data: pullRequest, isLoading: isPRLoading } =
     usePullRequestByTask(taskId)
   const {
@@ -233,6 +309,42 @@ function CodeChanges({ taskId }: { taskId: string }) {
     error: diffError,
   } = useTaskDiff(taskId)
   const createPRMutation = useCreatePullRequest()
+
+  const handleCodeChangesUpdated = useCallback(
+    (message: {
+      type?: string
+      data?: {
+        task_id?: string
+        entity_id?: string
+        pr?: { task_id?: string }
+      }
+    }) => {
+      const updatedTaskId =
+        message.data?.task_id || message.data?.entity_id || message.data?.pr?.task_id
+      if (updatedTaskId !== taskId) return
+
+      if (message.type === 'pr_update') {
+        queryClient.invalidateQueries({
+          queryKey: ['pull-request-by-task', taskId],
+        })
+      }
+      queryClient.invalidateQueries({
+        queryKey: ['tasks', 'diff', taskId],
+      })
+    },
+    [queryClient, taskId]
+  )
+
+  useEffect(() => {
+    subscribe('task_updated', handleCodeChangesUpdated)
+    subscribe('status_changed', handleCodeChangesUpdated)
+    subscribe('pr_update', handleCodeChangesUpdated)
+    return () => {
+      unsubscribe('task_updated', handleCodeChangesUpdated)
+      unsubscribe('status_changed', handleCodeChangesUpdated)
+      unsubscribe('pr_update', handleCodeChangesUpdated)
+    }
+  }, [subscribe, unsubscribe, handleCodeChangesUpdated])
 
   const handleCreatePR = async () => {
     try {
@@ -245,6 +357,9 @@ function CodeChanges({ taskId }: { taskId: string }) {
   }
 
   const isLoading = isPRLoading || isDiffLoading
+  const canCreatePullRequest = ['IMPLEMENTING', 'CODE_REVIEWING', 'DONE'].includes(
+    taskStatus
+  )
 
   if (isLoading) {
     return (
@@ -259,7 +374,7 @@ function CodeChanges({ taskId }: { taskId: string }) {
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-2'>
-        <h4 className='text-sm font-medium'>Code Changes</h4>
+        <h4 className='text-sm font-medium'>Thay đổi mã nguồn</h4>
       </div>
 
       {/* Pull Request Section */}
@@ -279,7 +394,7 @@ function CodeChanges({ taskId }: { taskId: string }) {
               #{pullRequest.github_pr_number} - {pullRequest.title}
             </div>
           </>
-        ) : (
+        ) : canCreatePullRequest ? (
           <Button
             variant='outline'
             size='sm'
@@ -290,6 +405,10 @@ function CodeChanges({ taskId }: { taskId: string }) {
             <ExternalLink className='mr-2 h-4 w-4' />
             {createPRMutation.isPending ? 'Creating...' : 'Create Pull Request'}
           </Button>
+        ) : (
+          <p className='text-muted-foreground text-sm'>
+            Chỉ có thể tạo Pull Request sau khi kế hoạch được duyệt và bắt đầu triển khai.
+          </p>
         )}
       </div>
 

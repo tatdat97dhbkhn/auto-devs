@@ -17,6 +17,7 @@ packages:
     interfaces:
       ProjectUsecase:
       NotificationUsecase:
+      TaskUsecase:
   github.com/auto-devs/auto-devs/internal/repository:
     config:
       all: true

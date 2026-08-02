@@ -146,6 +146,19 @@ func (g *GitCommands) Init(ctx context.Context, workingDir string, bare bool) er
 	return nil
 }
 
+// RenameBranch renames the currently checked-out branch (or another local
+// branch) without changing the worktree contents.
+func (g *GitCommands) RenameBranch(ctx context.Context, workingDir, oldName, newName string) error {
+	result, err := g.executor.Execute(ctx, workingDir, "branch", "-m", oldName, newName)
+	if err != nil {
+		return WrapWithOperation("rename branch", err)
+	}
+	if result.ExitCode != 0 {
+		return NewGitError("rename branch", result.ExitCode, result.Command, result.Stdout, result.Stderr, nil)
+	}
+	return nil
+}
+
 // Clone clones a repository
 func (g *GitCommands) Clone(ctx context.Context, url, destination string, options *CloneOptions) error {
 	args := []string{"clone"}
@@ -497,7 +510,7 @@ func (g *GitCommands) Push(ctx context.Context, workingDir, remote, branch strin
 // PushWithUpstream pushes commits and sets upstream tracking
 func (g *GitCommands) PushWithUpstream(ctx context.Context, workingDir, remote, branch string) error {
 	args := []string{"push", "--set-upstream", remote, branch}
-	
+
 	result, err := g.executor.Execute(ctx, workingDir, args...)
 	if err != nil {
 		return WrapWithOperation("push-upstream", err)
@@ -528,7 +541,7 @@ func (g *GitCommands) GetPendingChanges(ctx context.Context, workingDir string) 
 // GetDiff returns the git diff between two refs (or working directory)
 func (g *GitCommands) GetDiff(ctx context.Context, workingDir, fromRef, toRef string) (string, error) {
 	args := []string{"diff"}
-	
+
 	if fromRef != "" && toRef != "" {
 		// Compare two refs
 		args = append(args, fmt.Sprintf("%s...%s", fromRef, toRef))

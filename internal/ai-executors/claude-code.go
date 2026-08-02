@@ -9,28 +9,59 @@ import (
 	"github.com/auto-devs/auto-devs/internal/entity"
 )
 
-type ClaudeCodeExecutor struct{}
+type ClaudeCodeExecutor struct {
+	model           string
+	reasoningEffort string
+}
 
-func NewClaudeCodeExecutor() *ClaudeCodeExecutor {
-	return &ClaudeCodeExecutor{}
+func NewClaudeCodeExecutor(settings ...string) *ClaudeCodeExecutor {
+	executor := &ClaudeCodeExecutor{}
+	if len(settings) > 0 {
+		executor.model = settings[0]
+	}
+	if len(settings) > 1 {
+		executor.reasoningEffort = settings[1]
+	}
+	return executor
 }
 
 func (e *ClaudeCodeExecutor) GetPlanningCommand(ctx context.Context, task *entity.Task) (string, string, map[string]string, error) {
-	command := "npx -y @anthropic-ai/claude-code@2.1.119 -p --permission-mode=plan --verbose --output-format=stream-json"
+	command := e.command("npx -y @anthropic-ai/claude-code@2.1.119 -p --permission-mode=plan --verbose --output-format=stream-json")
 	prompt, err := e.generatePlanningPrompt(*task)
+	if task.RevisionPrompt != "" {
+		prompt = task.RevisionPrompt
+	}
 	if err != nil {
 		return "", "", nil, err
 	}
 	return command, prompt, nil, nil
 }
 
+func (e *ClaudeCodeExecutor) GetPlanningCommandWithSession(ctx context.Context, task *entity.Task, sessionID string) (string, string, map[string]string, error) {
+	command, prompt, env, err := e.GetPlanningCommand(ctx, task)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return command + " --resume " + shellQuote(sessionID), prompt, env, nil
+}
+
 func (e *ClaudeCodeExecutor) GetImplementationCommand(ctx context.Context, task *entity.Task) (string, string, map[string]string, error) {
-	command := "npx -y @anthropic-ai/claude-code@2.1.119 -p --dangerously-skip-permissions --verbose --output-format=stream-json"
+	command := e.command("npx -y @anthropic-ai/claude-code@2.1.119 -p --dangerously-skip-permissions --verbose --output-format=stream-json")
 	prompt, err := e.getImplementationPrompt(ctx, task)
 	if err != nil {
 		return "", "", nil, err
 	}
 	return command, prompt, nil, nil
+}
+
+func (e *ClaudeCodeExecutor) command(command string) string {
+	if e.model != "" {
+		command += " --model " + shellQuote(e.model)
+	}
+	if e.reasoningEffort != "" {
+		command += " --effort " + shellQuote(e.reasoningEffort)
+	}
+	return command
 }
 
 func (e *ClaudeCodeExecutor) ParseOutputToLogs(output string) []*entity.ExecutionLog {
@@ -110,9 +141,17 @@ func (e *ClaudeCodeExecutor) getImplementationPrompt(_ context.Context, task *en
 // generatePlanningPrompt creates a structured prompt for AI planning phase
 func (e *ClaudeCodeExecutor) generatePlanningPrompt(task entity.Task) (string, error) {
 	prompt := fmt.Sprintf(`
-	Plan for bellow task, only output the plan, no other text:
+	Plan for the task below. Return the plan in English and no other commentary:
 	Task: %s
 	Task Description: %s
+
+	At the top, include this exact metadata section with clear values selected for this task:
+	## Plan Metadata
+	- Branch Name: feature/<short-kebab-case-description>
+	- Commit Message: <one-line imperative English commit message>
+	- Pull Request Title: <concise English title, preferably the same as the commit message>
+
+	Then include the implementation details under ## Implementation Plan.
 	`, task.Title, task.Description)
 	return prompt, nil
 }

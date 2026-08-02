@@ -80,7 +80,7 @@ export function KanbanColumn({
               onClick={onLoadDoneTasks}
               className='h-7 px-2 text-xs'
             >
-              Load tasks
+              Tải công việc
             </Button>
           )}
 
@@ -95,9 +95,9 @@ export function KanbanColumn({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end'>
-              <DropdownMenuItem>Sort by Date</DropdownMenuItem>
-              <DropdownMenuItem>Sort by Title</DropdownMenuItem>
-              <DropdownMenuItem>Filter Tasks</DropdownMenuItem>
+              <DropdownMenuItem>Sắp xếp theo ngày</DropdownMenuItem>
+              <DropdownMenuItem>Sắp xếp theo tiêu đề</DropdownMenuItem>
+              <DropdownMenuItem>Lọc công việc</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

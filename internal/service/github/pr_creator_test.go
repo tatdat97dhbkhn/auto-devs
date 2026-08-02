@@ -16,6 +16,15 @@ type MockGitHubService struct {
 	mock.Mock
 }
 
+type ExistingPRGitHubService struct {
+	MockGitHubService
+	existing *entity.PullRequest
+}
+
+func (m *ExistingPRGitHubService) FindOpenPullRequest(ctx context.Context, repo, base, head string) (*entity.PullRequest, error) {
+	return m.existing, nil
+}
+
 func (m *MockGitHubService) CreatePullRequest(ctx context.Context, repo, base, head, title, body string) (*entity.PullRequest, error) {
 	args := m.Called(ctx, repo, base, head, title, body)
 	if pr := args.Get(0); pr != nil {
@@ -139,16 +148,10 @@ func TestPRCreator_GeneratePRDescription(t *testing.T) {
 		Content: "Test plan content",
 	}
 
-	startTime := time.Now().Add(-1 * time.Hour)
-	endTime := time.Now()
-	resultString := `{"status": "success", "files": ["test.go"]}`
 	execution := entity.Execution{
-		ID:          executionID,
-		TaskID:      taskID,
-		Status:      entity.ExecutionStatusCompleted,
-		StartedAt:   startTime,
-		CompletedAt: &endTime,
-		Result:      &resultString,
+		ID:     executionID,
+		TaskID: taskID,
+		Status: entity.ExecutionStatusCompleted,
 	}
 
 	description, err := creator.GeneratePRDescription(task, plan, execution)
@@ -156,19 +159,31 @@ func TestPRCreator_GeneratePRDescription(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, description)
 
-	// Check that description contains expected sections
 	assert.Contains(t, description, "## Task Information")
 	assert.Contains(t, description, "## Implementation Plan")
-	assert.Contains(t, description, "## Implementation Summary")
-	assert.Contains(t, description, "## Testing Instructions")
-	assert.Contains(t, description, "## Review Checklist")
-
-	// Check that key information is included
-	assert.Contains(t, description, task.Title)
+	assert.Contains(t, description, plan.Content)
+	assert.NotContains(t, description, "## Implementation Status")
+	assert.NotContains(t, description, executionID.String())
 	assert.Contains(t, description, task.Description)
-	assert.Contains(t, description, taskID.String())
-	assert.Contains(t, description, planID.String())
-	assert.Contains(t, description, executionID.String())
+}
+
+func TestPRCreator_GeneratePRTitleFromPlan(t *testing.T) {
+	creator := NewPRCreator(nil, "")
+	title, err := creator.GeneratePRTitleFromPlan(entity.Task{ID: uuid.New(), Title: "Add English API endpoint"}, &entity.Plan{Content: "# Kế hoạch triển khai\n\nDetails"})
+	assert.NoError(t, err)
+	assert.Equal(t, "Add English API endpoint", title)
+
+	title, err = creator.GeneratePRTitleFromPlan(entity.Task{ID: uuid.New(), Title: "Xoá AGENT.md"}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "Remove AGENT.md", title)
+
+	title, err = creator.GeneratePRTitleFromPlan(entity.Task{ID: uuid.New(), Title: "Bỏ file AGENT.md"}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "Remove AGENT.md", title)
+
+	title, err = creator.GeneratePRTitleFromPlan(entity.Task{ID: uuid.New(), Title: "Vietnamese task title"}, &entity.Plan{PRTitle: "Remove AGENT.md"})
+	assert.NoError(t, err)
+	assert.Equal(t, "Remove AGENT.md", title)
 }
 
 func TestPRCreator_ValidateTaskForPRCreation(t *testing.T) {
@@ -281,6 +296,11 @@ func TestPRCreator_getRepositoryFromTask(t *testing.T) {
 		{
 			name:     "SSH URL",
 			repoURL:  "git@github.com:owner/repo.git",
+			expected: "owner/repo",
+		},
+		{
+			name:     "SSH URL with host alias",
+			repoURL:  "git@github.com-work:owner/repo.git",
 			expected: "owner/repo",
 		},
 		{
@@ -412,6 +432,21 @@ func TestPRCreator_CreatePRFromImplementation(t *testing.T) {
 
 	// Verify mock calls
 	mockGitHub.AssertExpectations(t)
+}
+
+func TestPRCreator_ReusesExistingOpenPullRequest(t *testing.T) {
+	taskID := uuid.New()
+	branch := "feature/remove-agent-instructions"
+	base := "main"
+	existing := &entity.PullRequest{ID: uuid.New(), GitHubPRNumber: 42, Repository: "owner/repo", HeadBranch: branch, BaseBranch: base}
+	service := &ExistingPRGitHubService{existing: existing}
+	creator := NewPRCreator(service, "")
+	task := entity.Task{ID: taskID, Title: "Remove agent instructions", BranchName: &branch, BaseBranchName: &base, Project: &entity.Project{RepositoryURL: "https://github.com/owner/repo"}}
+
+	result, err := creator.CreatePRFromImplementation(context.Background(), task, entity.Execution{ID: uuid.New()}, nil)
+	assert.NoError(t, err)
+	assert.Same(t, existing, result)
+	assert.Equal(t, taskID, result.TaskID)
 }
 
 // Helper function to create string pointers

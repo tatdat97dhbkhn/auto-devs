@@ -178,7 +178,9 @@ export function RealTimeProjectStats({
       {/* Total Tasks */}
       <Card className='relative overflow-hidden'>
         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>Total Tasks</CardTitle>
+          <CardTitle className='text-sm font-medium'>
+            Tổng số công việc
+          </CardTitle>
           <Activity className='text-muted-foreground h-4 w-4' />
         </CardHeader>
         <CardContent>
@@ -200,7 +202,9 @@ export function RealTimeProjectStats({
       {/* Completion Rate */}
       <Card className='relative overflow-hidden'>
         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>Completion Rate</CardTitle>
+          <CardTitle className='text-sm font-medium'>
+            Tỷ lệ hoàn thành
+          </CardTitle>
           <CheckCircle className='text-muted-foreground h-4 w-4' />
         </CardHeader>
         <CardContent>
@@ -217,7 +221,7 @@ export function RealTimeProjectStats({
             className='mt-2 h-2 transition-all duration-500'
           />
           <div className='text-muted-foreground mt-1 text-xs'>
-            {stats.byStatus.DONE} of {stats.total} completed
+            {stats.byStatus.DONE} / {stats.total} công việc đã hoàn thành
           </div>
         </CardContent>
       </Card>
@@ -233,7 +237,7 @@ export function RealTimeProjectStats({
         <CardContent>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-sm'>Created</span>
+              <span className='text-muted-foreground text-sm'>Đã tạo</span>
               <span
                 className={`font-medium transition-all duration-300 ${
                   animatingStats.has('todayCreated')
@@ -246,7 +250,9 @@ export function RealTimeProjectStats({
               </span>
             </div>
             <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-sm'>Completed</span>
+              <span className='text-muted-foreground text-sm'>
+                Đã hoàn thành
+              </span>
               <span
                 className={`font-medium transition-all duration-300 ${
                   animatingStats.has('todayCompleted')
@@ -265,7 +271,9 @@ export function RealTimeProjectStats({
       {/* Alerts & Active Users */}
       <Card className='relative overflow-hidden'>
         <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>Alerts & Users</CardTitle>
+          <CardTitle className='text-sm font-medium'>
+            Cảnh báo và người dùng
+          </CardTitle>
           <Users className='text-muted-foreground h-4 w-4' />
         </CardHeader>
         <CardContent>
@@ -273,7 +281,7 @@ export function RealTimeProjectStats({
             <div className='flex items-center justify-between'>
               <div className='flex items-center gap-1'>
                 <AlertCircle className='h-3 w-3 text-red-500' />
-                <span className='text-muted-foreground text-sm'>Overdue</span>
+                <span className='text-muted-foreground text-sm'>Quá hạn</span>
               </div>
               <span
                 className={`font-medium transition-all duration-300 ${
@@ -287,7 +295,9 @@ export function RealTimeProjectStats({
             <div className='flex items-center justify-between'>
               <div className='flex items-center gap-1'>
                 <Users className='h-3 w-3 text-green-500' />
-                <span className='text-muted-foreground text-sm'>Active</span>
+                <span className='text-muted-foreground text-sm'>
+                  Đang hoạt động
+                </span>
               </div>
               <span
                 className={`font-medium transition-all duration-300 ${
@@ -307,7 +317,9 @@ export function RealTimeProjectStats({
       {/* Status Breakdown */}
       <Card className='col-span-full'>
         <CardHeader>
-          <CardTitle className='text-lg'>Task Status Breakdown</CardTitle>
+          <CardTitle className='text-lg'>
+            Phân bổ trạng thái công việc
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className='grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7'>
@@ -362,22 +374,22 @@ export function CompactProjectStats({
   return (
     <div className='space-y-2'>
       <div className='flex items-center justify-between text-sm'>
-        <span className='text-muted-foreground'>Progress</span>
+        <span className='text-muted-foreground'>Tiến độ</span>
         <span className='font-medium'>{stats.completionRate.toFixed(0)}%</span>
       </div>
       <Progress value={stats.completionRate} className='h-2' />
       <div className='grid grid-cols-3 gap-2 text-xs'>
         <div className='text-center'>
           <div className='font-medium'>{stats.total}</div>
-          <div className='text-muted-foreground'>Total</div>
+          <div className='text-muted-foreground'>Tổng cộng</div>
         </div>
         <div className='text-center'>
           <div className='font-medium text-green-600'>{stats.completed}</div>
-          <div className='text-muted-foreground'>Done</div>
+          <div className='text-muted-foreground'>Hoàn thành</div>
         </div>
         <div className='text-center'>
           <div className='font-medium text-blue-600'>{stats.inProgress}</div>
-          <div className='text-muted-foreground'>Active</div>
+          <div className='text-muted-foreground'>Đang hoạt động</div>
         </div>
       </div>
     </div>

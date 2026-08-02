@@ -73,7 +73,7 @@ export function ExecutionDuration({
           className={cn('h-3 w-3', isActive && 'animate-pulse text-blue-500')}
         />
       )}
-      {showLabel && <span>Duration:</span>}
+      {showLabel && <span>Thời lượng:</span>}
       <span
         className={cn('font-mono', isActive && 'font-medium text-blue-600')}
       >

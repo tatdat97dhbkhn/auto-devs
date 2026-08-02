@@ -84,11 +84,14 @@ export function RealTimeNotifications({
 
   // Handle task created
   const handleTaskCreated = (task: Task) => {
+    if (!task?.id) return
+
     if (!projectId || task.project_id === projectId) {
-      const message = `New task created: "${task.title}"`
+      const taskTitle = task.title?.trim() || 'công việc mới'
+      const message = `Đã tạo công việc mới: "${taskTitle}"`
 
       showToastNotification(message, 'success')
-      showBrowserNotification('New Task', message)
+      showBrowserNotification('Công việc mới', message)
       playNotificationSound()
 
       // Animate the new task
@@ -105,11 +108,11 @@ export function RealTimeNotifications({
   const handleTaskUpdated = (task: Task, changes?: any) => {
     console.log('handleTaskUpdated !!!!!!!!', task, changes)
     if (!projectId || task.project_id === projectId) {
-      let message = `Task "${task.title}" updated`
+      let message = `Đã cập nhật công việc "${task.title}"`
 
       if (changes?.status) {
         const { old: oldStatus, new: newStatus } = changes.status
-        message = `Task "${task.title}" moved from ${oldStatus} to ${newStatus}`
+        message = `Công việc "${task.title}" đã chuyển từ ${oldStatus} sang ${newStatus}`
 
         showToastNotification(message, 'info')
         animateTaskStatusChanged(task.id, newStatus, {
@@ -126,17 +129,17 @@ export function RealTimeNotifications({
         })
       }
 
-      showBrowserNotification('Task Updated', message)
+      showBrowserNotification('Công việc đã cập nhật', message)
       playNotificationSound()
     }
   }
 
   // Handle task deleted
   const handleTaskDeleted = (taskId: string) => {
-    const message = 'Task deleted'
+    const message = 'Đã xoá công việc'
 
     showToastNotification(message, 'info')
-    showBrowserNotification('Task Deleted', message)
+    showBrowserNotification('Công việc đã xoá', message)
     playNotificationSound()
 
     // Animate task removal
@@ -148,10 +151,10 @@ export function RealTimeNotifications({
   // Handle project updated
   const handleProjectUpdated = (project: any) => {
     if (!projectId || project.id === projectId) {
-      const message = `Project "${project.name}" updated`
+      const message = `Đã cập nhật dự án "${project.name}"`
 
       showToastNotification(message, 'info')
-      showBrowserNotification('Project Updated', message)
+      showBrowserNotification('Dự án đã cập nhật', message)
       playNotificationSound()
     }
   }
@@ -159,7 +162,7 @@ export function RealTimeNotifications({
   // Handle user presence
   const handleUserJoined = (username: string, userProjectId: string) => {
     if (!projectId || userProjectId === projectId) {
-      const message = `${username} joined the project`
+      const message = `${username} đã tham gia dự án`
 
       showToastNotification(message, 'info')
     }
@@ -167,7 +170,7 @@ export function RealTimeNotifications({
 
   const handleUserLeft = (username: string, userProjectId: string) => {
     if (!projectId || userProjectId === projectId) {
-      const message = `${username} left the project`
+      const message = `${username} đã rời dự án`
 
       showToastNotification(message, 'info')
     }
@@ -175,7 +178,7 @@ export function RealTimeNotifications({
 
   // Handle connection errors
   const handleConnectionError = (error: string) => {
-    showToastNotification(`Connection error: ${error}`, 'error')
+    showToastNotification(`Lỗi kết nối: ${error}`, 'error')
   }
 
   // Handle auth failures
@@ -228,7 +231,8 @@ function WebSocketNotificationHandler({
     const handlers = [
       {
         type: 'task_created',
-        handler: (message: any) => onTaskCreated?.(message.data),
+        handler: (message: any) =>
+          onTaskCreated?.(message.data?.task ?? message.data),
       },
       {
         type: 'task_updated',

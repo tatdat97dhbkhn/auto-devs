@@ -27,19 +27,16 @@ import { Textarea } from '@/components/ui/textarea'
 const createProjectSchema = z.object({
   name: z
     .string()
-    .min(1, 'Project name is required')
-    .max(100, 'Project name must be less than 100 characters'),
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .optional(),
+    .min(1, 'Tên dự án là bắt buộc')
+    .max(100, 'Tên dự án phải dưới 100 ký tự'),
+  description: z.string().max(500, 'Mô tả phải dưới 500 ký tự').optional(),
   worktree_base_path: z
     .string()
-    .min(1, 'Worktree base path is required')
-    .max(500, 'Worktree base path must be less than 500 characters'),
+    .min(1, 'Đường dẫn gốc Worktree là bắt buộc')
+    .max(500, 'Đường dẫn Worktree phải dưới 500 ký tự'),
   init_workspace_script: z
     .string()
-    .max(2000, 'Init script must be less than 2000 characters')
+    .max(2000, 'Tập lệnh khởi tạo phải dưới 2.000 ký tự')
     .optional(),
 })
 
@@ -101,10 +98,10 @@ export function ProjectCreateModal({
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
             <Plus className='h-5 w-5' />
-            Create New Project
+            Tạo dự án mới
           </DialogTitle>
           <DialogDescription>
-            Set up a new development project to start managing tasks
+            Thiết lập dự án phát triển mới để bắt đầu quản lý công việc
           </DialogDescription>
         </DialogHeader>
 
@@ -115,13 +112,11 @@ export function ProjectCreateModal({
               name='name'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name</FormLabel>
+                  <FormLabel>Tên dự án</FormLabel>
                   <FormControl>
-                    <Input placeholder='My Awesome Project' {...field} />
+                    <Input placeholder='Tên dự án của tôi' {...field} />
                   </FormControl>
-                  <FormDescription>
-                    A descriptive name for your project
-                  </FormDescription>
+                  <FormDescription>Tên mô tả cho dự án của bạn</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -132,17 +127,17 @@ export function ProjectCreateModal({
               name='description'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Mô tả</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='Brief description of what this project does...'
+                      placeholder='Mô tả ngắn gọn dự án này làm gì...'
                       className='resize-none'
                       rows={3}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Optional description to help identify this project
+                    Mô tả tuỳ chọn giúp nhận diện dự án
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -154,12 +149,12 @@ export function ProjectCreateModal({
               name='worktree_base_path'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Worktree Base Path</FormLabel>
+                  <FormLabel>Đường dẫn gốc Worktree</FormLabel>
                   <FormControl>
                     <Input placeholder='/path/to/your/project' {...field} />
                   </FormControl>
                   <FormDescription>
-                    Base path for Git worktree operations
+                    Đường dẫn gốc cho các thao tác Git Worktree
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -171,7 +166,7 @@ export function ProjectCreateModal({
               name='init_workspace_script'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Init Workspace Script</FormLabel>
+                  <FormLabel>Tập lệnh khởi tạo workspace</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder='npm install && npm run build'
@@ -181,8 +176,8 @@ export function ProjectCreateModal({
                     />
                   </FormControl>
                   <FormDescription>
-                    Optional bash script to run after creating worktree (e.g.,
-                    install dependencies)
+                    Tập lệnh bash tuỳ chọn chạy sau khi tạo Worktree (ví dụ: cài
+                    dependency)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -191,10 +186,10 @@ export function ProjectCreateModal({
 
             <div className='flex justify-end gap-3 pt-4'>
               <Button type='button' variant='outline' onClick={handleClose}>
-                Cancel
+                Huỷ
               </Button>
               <Button type='submit' disabled={createProject.isPending}>
-                {createProject.isPending ? 'Creating...' : 'Create Project'}
+                {createProject.isPending ? 'Đang tạo...' : 'Tạo dự án'}
               </Button>
             </div>
           </form>

@@ -13,51 +13,51 @@ import { type SidebarData } from '../types'
 export const sidebarData: SidebarData = {
   navGroups: [
     {
-      title: 'General',
+      title: 'Chung',
       items: [
         {
-          title: 'Projects',
+          title: 'Dự án',
           url: '/projects',
           icon: IconPackages,
         },
       ],
     },
     {
-      title: 'Settings',
+      title: 'Cài đặt',
       items: [
         {
-          title: 'Settings',
+          title: 'Cài đặt',
           icon: IconSettings,
           items: [
             {
-              title: 'AI Executor',
+              title: 'Trình thực thi AI',
               url: '/settings/ai-executor',
               icon: IconRobot,
             },
             {
-              title: 'Github Integration',
+              title: 'Tích hợp GitHub',
               url: '/settings/github-integration',
               icon: IconBrandGithub,
             },
             {
-              title: 'Appearance',
+              title: 'Giao diện',
               url: '/settings/appearance',
               icon: IconPalette,
             },
             {
-              title: 'Notifications',
+              title: 'Thông báo',
               url: '/settings/notifications',
               icon: IconNotification,
             },
             {
-              title: 'Code Editor',
+              title: 'Trình soạn thảo mã',
               url: '/settings/code-editor',
               icon: IconCode,
             },
           ],
         },
         {
-          title: 'About this project',
+          title: 'Về Auto-Devs',
           url: '/about-us',
           icon: IconInfoCircle,
         },

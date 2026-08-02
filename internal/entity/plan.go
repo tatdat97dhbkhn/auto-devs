@@ -60,13 +60,20 @@ func GetAllPlanStatuses() []PlanStatus {
 
 // Plan represents a plan for a task stored as markdown content
 type Plan struct {
-	ID        uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	TaskID    uuid.UUID      `json:"task_id" gorm:"type:uuid;not null" validate:"required"`
-	Status    PlanStatus     `json:"status" gorm:"size:50;not null;default:'DRAFT'" validate:"required,oneof=DRAFT REVIEWING APPROVED REJECTED"`
-	Content   string         `json:"content" gorm:"type:text;not null" validate:"required"`
-	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	ID                  uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	TaskID              uuid.UUID      `json:"task_id" gorm:"type:uuid;not null" validate:"required"`
+	Status              PlanStatus     `json:"status" gorm:"size:50;not null;default:'DRAFT'" validate:"required,oneof=DRAFT REVIEWING APPROVED REJECTED"`
+	Content             string         `json:"content" gorm:"type:text;not null" validate:"required"`
+	BranchName          string         `json:"branch_name,omitempty" gorm:"size:255"`
+	CommitMessage       string         `json:"commit_message,omitempty" gorm:"size:255"`
+	PRTitle             string         `json:"pr_title,omitempty" gorm:"size:255"`
+	RevisionOfPlanID    *uuid.UUID     `json:"revision_of_plan_id,omitempty" gorm:"type:uuid;index"`
+	RevisionFeedback    string         `json:"revision_feedback,omitempty" gorm:"type:text"`
+	RevisionExecutionID *uuid.UUID     `json:"revision_execution_id,omitempty" gorm:"type:uuid;index"`
+	ExecutionID         *uuid.UUID     `json:"-" gorm:"type:uuid;index"`
+	CreatedAt           time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt           time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt           gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
 
 	// Relationships
 	Task Task `json:"task,omitempty" gorm:"foreignKey:TaskID"`
@@ -97,11 +104,11 @@ type PlanVersionComparison struct {
 
 // PlanStatistics represents statistics for plans in a project
 type PlanStatistics struct {
-	ProjectID            uuid.UUID                   `json:"project_id"`
-	TotalPlans           int                         `json:"total_plans"`
-	StatusDistribution   map[PlanStatus]int          `json:"status_distribution"`
-	AverageContentLength float64                     `json:"average_content_length"`
-	PlansWithVersions    int                         `json:"plans_with_versions"`
-	MostActiveTask       *uuid.UUID                  `json:"most_active_task,omitempty"`
-	GeneratedAt          time.Time                   `json:"generated_at"`
+	ProjectID            uuid.UUID          `json:"project_id"`
+	TotalPlans           int                `json:"total_plans"`
+	StatusDistribution   map[PlanStatus]int `json:"status_distribution"`
+	AverageContentLength float64            `json:"average_content_length"`
+	PlansWithVersions    int                `json:"plans_with_versions"`
+	MostActiveTask       *uuid.UUID         `json:"most_active_task,omitempty"`
+	GeneratedAt          time.Time          `json:"generated_at"`
 }

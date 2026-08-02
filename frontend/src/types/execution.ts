@@ -18,6 +18,10 @@ interface ExecutionResult {
 export interface Execution {
   id: string
   task_id: string
+  ai_type?: string
+  model?: string
+  reasoning_effort?: string
+  execution_type?: 'PLANNING' | 'PLAN_REVISION' | 'IMPLEMENTATION'
   status: ExecutionStatus
   started_at: string
   completed_at?: string

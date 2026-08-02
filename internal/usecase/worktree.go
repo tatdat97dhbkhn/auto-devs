@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/auto-devs/auto-devs/internal/entity"
@@ -34,6 +35,7 @@ type WorktreeUsecase interface {
 
 	// Branch management within worktrees
 	CreateBranchForTask(ctx context.Context, taskID uuid.UUID, branchName string) error
+	RenameBranchForTask(ctx context.Context, taskID uuid.UUID, branchName string) error
 	SwitchToBranch(ctx context.Context, worktreeID uuid.UUID, branchName string) error
 	GetBranchInfo(ctx context.Context, worktreeID uuid.UUID) (*BranchInfo, error)
 
@@ -50,10 +52,46 @@ type WorktreeUsecase interface {
 	GetActiveWorktreesCount(ctx context.Context, projectID uuid.UUID) (int, error)
 }
 
+// RenameBranchForTask applies the branch selected by the approved plan to the
+// existing worktree and keeps both task/worktree records synchronized.
+func (w *worktreeUsecase) RenameBranchForTask(ctx context.Context, taskID uuid.UUID, branchName string) error {
+	branchName = strings.TrimSpace(branchName)
+	if branchName == "" {
+		return nil
+	}
+	worktree, err := w.worktreeRepo.GetByTaskID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task worktree: %w", err)
+	}
+	task, err := w.taskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+	if task.BranchName != nil && *task.BranchName == branchName && worktree.BranchName == branchName {
+		return nil
+	}
+	availableBranch, err := w.gitManager.GenerateVersionedBranchNameFromBase(ctx, worktree.WorktreePath, branchName)
+	if err != nil {
+		return fmt.Errorf("failed to find available plan branch: %w", err)
+	}
+	if err := w.gitManager.RenameBranch(ctx, worktree.WorktreePath, worktree.BranchName, availableBranch); err != nil {
+		return err
+	}
+	worktree.BranchName = availableBranch
+	if err := w.worktreeRepo.Update(ctx, worktree); err != nil {
+		return fmt.Errorf("failed to save worktree branch: %w", err)
+	}
+	task.BranchName = &availableBranch
+	if err := w.taskRepo.Update(ctx, task); err != nil {
+		return fmt.Errorf("failed to save task branch: %w", err)
+	}
+	return nil
+}
+
 type CreateWorktreeRequest struct {
-	TaskID         uuid.UUID `json:"task_id" binding:"required"`
-	ProjectID      uuid.UUID `json:"project_id" binding:"required"`
-	TaskTitle      string    `json:"task_title" binding:"required"`
+	TaskID          uuid.UUID `json:"task_id" binding:"required"`
+	ProjectID       uuid.UUID `json:"project_id" binding:"required"`
+	TaskTitle       string    `json:"task_title" binding:"required"`
 	BaseBranchName  string    `json:"base_branch_name,omitempty"` // Optional base branch override
 	Repository      string    `json:"repository,omitempty"`       // Optional repository URL to clone
 	UseRemoteBranch bool      `json:"use_remote_branch"`
@@ -169,7 +207,7 @@ func (w *worktreeUsecase) CreateWorktreeForTask(ctx context.Context, req CreateW
 	}
 
 	// Step 4: Generate unique branch name using naming conventions
-	branchName, err := w.gitManager.GenerateBranchName(req.TaskID.String(), req.TaskTitle)
+	branchName, err := w.gitManager.GenerateVersionedBranchName(ctx, project.WorktreeBasePath, req.TaskID.String(), req.TaskTitle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate branch name: %w", err)
 	}
@@ -183,6 +221,7 @@ func (w *worktreeUsecase) CreateWorktreeForTask(ctx context.Context, req CreateW
 		ProjectMainBranch:   baseBranchName,
 		InitWorkspaceScript: project.InitWorkspaceScript,
 		UseRemoteBranch:     req.UseRemoteBranch,
+		WorktreeBranchName:  branchName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create worktree: %w", err)
@@ -250,7 +289,8 @@ func (w *worktreeUsecase) EnqueueWorktreeCreation(ctx context.Context, req Creat
 	}
 
 	// Step 3: Validate project and task exist; persist selected base branch
-	if _, err := w.projectRepo.GetByID(ctx, req.ProjectID); err != nil {
+	project, err := w.projectRepo.GetByID(ctx, req.ProjectID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
@@ -265,7 +305,7 @@ func (w *worktreeUsecase) EnqueueWorktreeCreation(ctx context.Context, req Creat
 	}
 
 	// Step 4: Generate branch name (pure string operation, safe to run inline)
-	branchName, err := w.gitManager.GenerateBranchName(req.TaskID.String(), req.TaskTitle)
+	branchName, err := w.gitManager.GenerateVersionedBranchName(ctx, project.WorktreeBasePath, req.TaskID.String(), req.TaskTitle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate branch name: %w", err)
 	}
@@ -349,6 +389,24 @@ func (w *worktreeUsecase) ProcessWorktreeCreation(ctx context.Context, worktreeI
 	}
 
 	baseBranchName := resolveBaseBranchName("", task.BaseBranchName)
+	branchName := worktree.BranchName
+	if branchName == "" {
+		branchName, err = w.gitManager.GenerateVersionedBranchName(ctx, project.WorktreeBasePath, worktree.TaskID.String(), task.Title)
+		if err != nil {
+			return fmt.Errorf("failed to generate branch name: %w", err)
+		}
+	} else if exists, existsErr := w.gitManager.BranchExists(ctx, project.WorktreeBasePath, branchName); existsErr != nil {
+		return fmt.Errorf("failed to check existing branch: %w", existsErr)
+	} else if exists {
+		branchName, err = w.gitManager.GenerateVersionedBranchName(ctx, project.WorktreeBasePath, worktree.TaskID.String(), task.Title)
+		if err != nil {
+			return fmt.Errorf("failed to generate retry branch name: %w", err)
+		}
+		worktree.BranchName = branchName
+		if err := w.worktreeRepo.Update(ctx, worktree); err != nil {
+			return fmt.Errorf("failed to update retry branch name: %w", err)
+		}
+	}
 
 	// The slow part: create the git worktree and run the init workspace script.
 	worktreePath, err := w.integratedWorktreeSvc.CreateTaskWorktree(ctx, &worktreesvc.CreateTaskWorktreeRequest{
@@ -359,6 +417,7 @@ func (w *worktreeUsecase) ProcessWorktreeCreation(ctx context.Context, worktreeI
 		ProjectMainBranch:   baseBranchName,
 		InitWorkspaceScript: project.InitWorkspaceScript,
 		UseRemoteBranch:     useRemoteBranch,
+		WorktreeBranchName:  branchName,
 	})
 	if err != nil {
 		// Mark the worktree as error so the UI can surface the failure. Returning the

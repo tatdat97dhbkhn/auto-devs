@@ -85,11 +85,13 @@ func (iws *IntegratedWorktreeService) CreateTaskWorktree(ctx context.Context, re
 	}
 
 	// Generate branch name
-	branchName, err := iws.gitManager.GenerateBranchName(request.TaskID, request.TaskTitle)
-	if err != nil {
-		// Clean up worktree on error
-		iws.worktreeManager.CleanupWorktree(ctx, worktreePath)
-		return nil, fmt.Errorf("failed to generate branch name: %w", err)
+	branchName := request.WorktreeBranchName
+	if branchName == "" {
+		branchName, err = iws.gitManager.GenerateVersionedBranchName(ctx, request.ProjectWorkDir, request.TaskID, request.TaskTitle)
+		if err != nil {
+			iws.worktreeManager.CleanupWorktree(ctx, worktreePath)
+			return nil, fmt.Errorf("failed to generate branch name: %w", err)
+		}
 	}
 
 	// Create branch from main
@@ -415,6 +417,7 @@ type CreateTaskWorktreeRequest struct {
 	ProjectMainBranch   string `json:"project_main_branch"`
 	InitWorkspaceScript string `json:"init_workspace_script"`
 	UseRemoteBranch     bool   `json:"use_remote_branch"`
+	WorktreeBranchName  string `json:"worktree_branch_name,omitempty"`
 }
 
 // CleanupTaskWorktreeRequest represents a request to cleanup a task worktree

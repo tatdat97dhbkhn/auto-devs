@@ -203,12 +203,13 @@ export class AutoDevsClient {
 
   async approvePlan(
     taskId: string,
-    data: { aiType: string }
+    data: { aiType: string; planId: string }
   ): Promise<{ message: string; job_id: string }> {
     return withRetry(async () => {
       try {
         const response = await this.client.post(`/api/v1/tasks/${taskId}/approve-plan`, {
           ai_type: data.aiType,
+          plan_id: data.planId,
         });
         return response.data;
       } catch (error) {

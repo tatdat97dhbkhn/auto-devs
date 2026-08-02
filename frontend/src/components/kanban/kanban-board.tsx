@@ -39,7 +39,7 @@ export function KanbanBoard({
   onDeleteTask,
   onViewTaskDetails,
   searchQuery = '',
-  showDoneTasks = false,
+  showDoneTasks = true,
   onLoadDoneTasks,
 }: KanbanBoardProps) {
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks)
@@ -198,7 +198,9 @@ export function KanbanBoard({
                   selectedTaskId={selectedTaskId}
                   isSelectedColumn={selectedColumnId === column.id}
                   showLoadDoneAction={column.id === 'DONE' && !showDoneTasks}
-                  onLoadDoneTasks={column.id === 'DONE' ? onLoadDoneTasks : undefined}
+                  onLoadDoneTasks={
+                    column.id === 'DONE' ? onLoadDoneTasks : undefined
+                  }
                 />
               </div>
             ))}

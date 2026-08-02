@@ -13,6 +13,7 @@ import (
 const (
 	TypeTaskPlanning       = "task:planning"
 	TypeTaskImplementation = "task:implementation"
+	TypeTaskPlanRevision   = "task:plan_revision"
 	TypePRStatusSync       = "pr:status_sync"
 	TypeWorktreeCleanup    = "worktree:cleanup"
 	TypeWorktreeCreate     = "worktree:create"
@@ -25,16 +26,45 @@ type TaskPlanningPayload struct {
 	BranchName      string    `json:"branch_name"`
 	ProjectID       uuid.UUID `json:"project_id"`
 	AIType          string    `json:"ai_type"`
+	Model           string    `json:"model,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
 	AutoImplement   bool      `json:"auto_implement"`
 	UseRemoteBranch bool      `json:"use_remote_branch"`
 }
 
 // TaskImplementationPayload represents the payload for task implementation jobs
 type TaskImplementationPayload struct {
+	TaskID          uuid.UUID  `json:"task_id"`
+	PlanID          *uuid.UUID `json:"plan_id,omitempty"`
+	ProjectID       uuid.UUID  `json:"project_id"`
+	AIType          string     `json:"ai_type"`
+	Model           string     `json:"model,omitempty"`
+	ReasoningEffort string     `json:"reasoning_effort,omitempty"`
+	UseRemoteBranch bool       `json:"use_remote_branch"`
+}
+
+type TaskPlanRevisionPayload struct {
 	TaskID          uuid.UUID `json:"task_id"`
-	ProjectID       uuid.UUID `json:"project_id"`
+	PlanID          uuid.UUID `json:"plan_id"`
 	AIType          string    `json:"ai_type"`
-	UseRemoteBranch bool      `json:"use_remote_branch"`
+	Model           string    `json:"model,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
+	Feedback        string    `json:"feedback"`
+}
+
+func NewTaskPlanRevisionJob(payload TaskPlanRevisionPayload) (*asynq.Task, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeTaskPlanRevision, data), nil
+}
+func ParseTaskPlanRevisionPayload(task *asynq.Task) (*TaskPlanRevisionPayload, error) {
+	var payload TaskPlanRevisionPayload
+	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+		return nil, err
+	}
+	return &payload, nil
 }
 
 // PRStatusSyncPayload represents the payload for PR status sync jobs
@@ -65,12 +95,14 @@ type WorktreeCreatePayload struct {
 }
 
 // NewTaskPlanningJob creates a new task planning job
-func NewTaskPlanningJob(taskID uuid.UUID, branchName string, projectID uuid.UUID, aiType string, autoImplement, useRemoteBranch bool) (*asynq.Task, error) {
+func NewTaskPlanningJob(taskID uuid.UUID, branchName string, projectID uuid.UUID, aiType string, model string, reasoningEffort string, autoImplement, useRemoteBranch bool) (*asynq.Task, error) {
 	payload := TaskPlanningPayload{
 		TaskID:          taskID,
 		BranchName:      branchName,
 		ProjectID:       projectID,
 		AIType:          aiType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 		AutoImplement:   autoImplement,
 		UseRemoteBranch: useRemoteBranch,
 	}
@@ -93,11 +125,14 @@ func ParseTaskPlanningPayload(task *asynq.Task) (*TaskPlanningPayload, error) {
 }
 
 // NewTaskImplementationJob creates a new task implementation job
-func NewTaskImplementationJob(taskID uuid.UUID, projectID uuid.UUID, aiType string, useRemoteBranch bool) (*asynq.Task, error) {
+func NewTaskImplementationJob(taskID uuid.UUID, projectID uuid.UUID, planID *uuid.UUID, aiType string, model string, reasoningEffort string, useRemoteBranch bool) (*asynq.Task, error) {
 	payload := TaskImplementationPayload{
 		TaskID:          taskID,
+		PlanID:          planID,
 		ProjectID:       projectID,
 		AIType:          aiType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
 		UseRemoteBranch: useRemoteBranch,
 	}
 
